@@ -390,10 +390,10 @@ export default function LifeRestartSimulator() {
         // 记录当前处理的年龄值供后续逻辑使用
         const newAge = age + 1
         
-        console.log(`模拟年龄增长：${newAge}岁`); // 调试日志
+        console.log(`模拟年龄增长：${newAge}岁, 修仙状态: ${isImmortalCultivation}, 下次渡劫年龄: ${nextTribulationAge}`); // 调试日志
 
         // 检查是否需要渡劫（修仙状态下）
-        if (isImmortalCultivation && newAge === nextTribulationAge) {
+        if (isImmortalCultivation && newAge === nextTribulationAge && nextTribulationAge > 0) {
           // 暂停模拟并触发渡劫
           setSimulationPaused(true)
           setShouldStartSimulation(false)
@@ -2121,8 +2121,12 @@ export default function LifeRestartSimulator() {
       // 设置修仙状态
       setIsImmortalCultivation(true);
       
-      // 设置第一次渡劫的年龄
-      setNextTribulationAge(currentAge + 20); // 20年后第一次渡劫
+      // 设置第一次渡劫的年龄，确保从当前年龄开始计算
+      const firstTribulationAge = currentAge + 20; // 20年后第一次渡劫
+      setNextTribulationAge(firstTribulationAge);
+      
+      // 记录调试信息
+      console.log(`设置修仙状态: true, 当前年龄: ${currentAge}, 第一次渡劫年龄: ${firstTribulationAge}`);
       
       // 增加寿命上限
       setMaxAgeLimit(250);

@@ -15,6 +15,31 @@ import { Checkbox } from "@/components/ui/checkbox"
 type AttributeType = "intelligence" | "appearance" | "wealth" | "health" | "luck"
 type Attributes = Record<AttributeType, number>
 
+// 定义天赋效果详情类型
+type AttributeBonus = {
+  [key in AttributeType]?: {
+    cap?: number;
+    initial?: number;
+  }
+}
+
+type EventChanceDetails = {
+  wealth_multiplier?: number;
+  social_bonus?: boolean;
+  education_bonus?: boolean;
+}
+
+type LifespanDetails = {
+  bonus: number;
+}
+
+type SpecialDetails = {
+  crisis_bonus?: boolean;
+  special_events?: boolean;
+}
+
+type TalentEffectDetails = AttributeBonus | EventChanceDetails | LifespanDetails | SpecialDetails;
+
 // 天赋类型定义
 type Talent = {
   id: string
@@ -22,7 +47,7 @@ type Talent = {
   description: string
   effect: {
     type: "attribute_bonus" | "event_chance" | "lifespan" | "special"
-    details: any
+    details: TalentEffectDetails
   }
   rarity: "普通" | "稀有" | "史诗" | "传说"
   color: string
@@ -72,7 +97,7 @@ export default function LifeRestartSimulator() {
     options: ChoiceOption[]
   } | null>(null)
   const [selectedTalents, setSelectedTalents] = useState<Talent[]>([])
-  const [maxTalents, setMaxTalents] = useState(3) // 最多可选天赋数
+  const maxTalents = 3 // 最多可选天赋数
   const [activeTab, setActiveTab] = useState("attributes")
 
   // 天赋列表
@@ -264,7 +289,7 @@ export default function LifeRestartSimulator() {
   // 应用天赋效果
   const applyTalentEffects = (talent: Talent) => {
     if (talent.effect.type === "attribute_bonus") {
-      const details = talent.effect.details
+      const details = talent.effect.details as AttributeBonus
 
       // 更新初始属性值
       const newAttributes = { ...attributes }
@@ -272,11 +297,10 @@ export default function LifeRestartSimulator() {
 
       Object.entries(details).forEach(([attr, bonusObj]) => {
         const attribute = attr as AttributeType
-        const bonus = bonusObj as { cap?: number; initial?: number }
         
-        if (bonus.initial) {
-          newAttributes[attribute] += bonus.initial
-          attributePointsUsed += bonus.initial
+        if (bonusObj.initial) {
+          newAttributes[attribute] += bonusObj.initial
+          attributePointsUsed += bonusObj.initial
         }
       })
 
@@ -288,7 +312,7 @@ export default function LifeRestartSimulator() {
   // 移除天赋效果
   const removeTalentEffects = (talent: Talent) => {
     if (talent.effect.type === "attribute_bonus") {
-      const details = talent.effect.details
+      const details = talent.effect.details as AttributeBonus
 
       // 恢复初始属性值
       const newAttributes = { ...attributes }
@@ -296,11 +320,10 @@ export default function LifeRestartSimulator() {
 
       Object.entries(details).forEach(([attr, bonusObj]) => {
         const attribute = attr as AttributeType
-        const bonus = bonusObj as { cap?: number; initial?: number }
         
-        if (bonus.initial) {
-          newAttributes[attribute] -= bonus.initial
-          attributePointsRestored += bonus.initial
+        if (bonusObj.initial) {
+          newAttributes[attribute] -= bonusObj.initial
+          attributePointsRestored += bonusObj.initial
         }
       })
 

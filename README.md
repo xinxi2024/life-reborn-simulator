@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 人生重开模拟器
 
-## Getting Started
+这是一个基于Next.js和React开发的人生重开模拟器应用，允许用户模拟一个全新的人生。
 
-First, run the development server:
+## 功能特点
+
+- 属性系统：智力、外貌、财富、健康和幸运五大基本属性
+- 天赋系统：选择不同天赋影响人生轨迹
+- 事件系统：根据年龄和属性触发随机人生事件
+- 选择系统：在关键时刻做出决策，影响后续发展
+- 人生总结：展示你的人生成就和结局
+
+## 技术栈
+
+- Next.js 15
+- React 19
+- TypeScript
+- Tailwind CSS
+- Shadcn UI组件库
+
+## 安装与运行
+
+确保已安装Node.js环境，然后执行以下命令：
 
 ```bash
+# 安装依赖
+npm install
+
+# 开发模式运行
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# 构建项目
+npm run build
+
+# 运行生产环境
+npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 游戏玩法
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. 在游戏开始前，调整各项属性上限和分配初始属性点
+2. 选择适合的天赋以获得特殊加成
+3. 开始模拟人生，每年会发生不同的事件
+4. 遇到选择时做出决策
+5. 人生结束后查看总结
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 自定义
 
-## Learn More
+可以通过修改代码轻松添加新的事件、天赋或游戏机制。
 
-To learn more about Next.js, take a look at the following resources:
+## 贡献
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+欢迎提交问题报告或功能建议，也欢迎提交PR来改进游戏。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 许可
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+本项目采用MIT许可证。详情请查看LICENSE文件。

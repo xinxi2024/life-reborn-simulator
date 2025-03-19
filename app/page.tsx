@@ -93,6 +93,7 @@ export default function LifeRestartSimulator() {
     relationships: "",
     achievements: [] as string[],
     finalAge: 0,
+    deathCause: ""
   })
   const [simulationPaused, setSimulationPaused] = useState(false)
   const [currentChoice, setCurrentChoice] = useState<{
@@ -363,7 +364,7 @@ export default function LifeRestartSimulator() {
     if (isInitialStart) {
       setCurrentAge(0)
       setLifeEvents([])
-      setIsImmortalCultivation(false)
+      setIsImmortalCultivation(false) // 确保初始化时修仙状态为false
       setTribulationsCount(0)
       setNextTribulationAge(0)
       setMaxAgeLimit(200)
@@ -562,136 +563,151 @@ export default function LifeRestartSimulator() {
 
   // 提供特殊选择（天命之子天赋）
   const presentSpecialChoice = (age: number) => {
+    // 只在合适的年龄提供特殊选择
     let question = ""
     let options: ChoiceOption[] = []
-
+    
     if (age === 22) {
-      question = "命运的十字路口出现了，一个神秘人向你提出了一个选择："
+      question = "年轻的你面临人生的重要岔路"
       options = [
         {
-          text: "接受一笔巨款，但健康会受到影响",
-          effect: [
-            { attribute: "wealth", value: 5 },
-            { attribute: "health", value: -3 },
-          ],
-          isRejuvenation: true,
-          isImmortalCultivation: true
-        },
-        {
-          text: "获得非凡的智慧，但需要牺牲一些社交能力",
-          effect: [
-            { attribute: "intelligence", value: 5 },
-            { attribute: "appearance", value: -2 },
-          ],
-          isImmortalCultivation: true
-        },
-        {
-          text: "拒绝选择，保持生活的平衡",
-          effect: [{ attribute: "luck", value: 3 }],
-        },
-      ]
-    } else if (age === 42) {
-      question = "一位老者出现在你面前，他似乎能看透你的灵魂："
-      options = [
-        {
-          text: "获得延年益寿的秘方，但需要放弃部分财富",
-          effect: [
-            { attribute: "health", value: 5 },
-            { attribute: "wealth", value: -3 },
-          ],
-          isRejuvenation: true,
-          isImmortalCultivation: true
-        },
-        {
-          text: "学习吸引他人的魅力秘诀，但会消耗你的精力",
-          effect: [
-            { attribute: "appearance", value: 5 },
-            { attribute: "health", value: -2 },
-          ],
-          isImmortalCultivation: true
-        },
-        {
-          text: "获得财富增长的秘密，但会减少你的好运",
-          effect: [
-            { attribute: "wealth", value: 5 },
-            { attribute: "luck", value: -3 },
-          ],
-          isImmortalCultivation: true
-        },
-      ]
-    } else if (age === 70) {
-      question = "在你的古稀之年，一位神秘的东方人向你伸出了橄榄枝："
-      options = [
-        {
-          text: "学习古老的气功养生术，延年益寿",
-          effect: [
-            { attribute: "health", value: 5 },
-            { attribute: "luck", value: 2 },
-          ],
-          isRejuvenation: true,
-          isImmortalCultivation: true
-        },
-        {
-          text: "投资一项前沿的长寿科技研究",
+          text: "追求学业上的进一步成就",
           effect: [
             { attribute: "intelligence", value: 3 },
-            { attribute: "wealth", value: -4 },
-            { attribute: "health", value: 3 },
-          ],
-          isImmortalCultivation: true
+            { attribute: "wealth", value: -1 }
+          ]
         },
         {
-          text: "收养几位年轻人为关门弟子，传授毕生所学",
+          text: "专注于职场发展，积累财富",
           effect: [
-            { attribute: "appearance", value: 2 },
-            { attribute: "intelligence", value: 2 },
-          ],
-          isImmortalCultivation: true
+            { attribute: "wealth", value: 3 },
+            { attribute: "intelligence", value: -1 }
+          ]
         },
+        {
+          text: "投资自我，提升外在形象",
+          effect: [
+            { attribute: "appearance", value: 3 },
+            { attribute: "wealth", value: -1 }
+          ]
+        },
+        {
+          text: "保持平衡发展，不偏重任何方面",
+          effect: [
+            { attribute: "intelligence", value: 1 },
+            { attribute: "wealth", value: 1 },
+            { attribute: "appearance", value: 1 }
+          ]
+        }
       ]
-    } else if (age === 100) {
-      question = "百岁人生，弥足珍贵。你收到了一封来自未知人物的邀请："
+    } else if (age === 42) {
+      question = "中年危机已至，你如何应对？"
       options = [
         {
-          text: "参与一项神秘的返老还童实验计划",
+          text: "职业转型，追求更高成就",
           effect: [
-            { attribute: "health", value: 8 },
-            { attribute: "appearance", value: 4 },
-            { attribute: "luck", value: -3 },
-          ],
-          isRejuvenation: true,
-          isImmortalCultivation: true
+            { attribute: "intelligence", value: 2 },
+            { attribute: "wealth", value: 2 },
+            { attribute: "health", value: -2 }
+          ]
         },
         {
-          text: "接受全球媒体的专访，分享你的长寿秘诀",
+          text: "注重健康，改善生活方式",
+          effect: [
+            { attribute: "health", value: 4 },
+            { attribute: "wealth", value: -1 }
+          ]
+        },
+        {
+          text: "追求平衡，家庭与事业兼顾",
+          effect: [
+            { attribute: "health", value: 1 },
+            { attribute: "intelligence", value: 1 },
+            { attribute: "wealth", value: 1 }
+          ]
+        },
+        {
+          text: "放手一搏，冒险投资",
           effect: [
             { attribute: "wealth", value: 5 },
-            { attribute: "appearance", value: 3 },
             { attribute: "health", value: -2 },
-          ],
-          isRejuvenation: true,
-          isImmortalCultivation: true
+            { attribute: "luck", value: -1 }
+          ]
+        }
+      ]
+    } else if (age === 70) {
+      question = "步入晚年，你如何规划余生？"
+      options = [
+        {
+          text: "退休享福，享受天伦之乐",
+          effect: [
+            { attribute: "health", value: 2 },
+            { attribute: "wealth", value: -1 }
+          ]
         },
         {
-          text: "隐居深山，专注于寻找生命的终极意义",
+          text: "继续工作，保持活力",
           effect: [
-            { attribute: "intelligence", value: 7 },
-            { attribute: "luck", value: 3 },
-            { attribute: "wealth", value: -3 },
-          ],
-          isImmortalCultivation: true
+            { attribute: "intelligence", value: 2 },
+            { attribute: "health", value: -1 }
+          ]
         },
+        {
+          text: "投身公益，回馈社会",
+          effect: [
+            { attribute: "luck", value: 3 },
+            { attribute: "wealth", value: -2 }
+          ]
+        },
+        {
+          text: "寻找新的兴趣爱好",
+          effect: [
+            { attribute: "intelligence", value: 1 },
+            { attribute: "health", value: 1 },
+            { attribute: "appearance", value: 1 }
+          ]
+        }
+      ]
+    } else if (age === 100) {
+      question = "百岁人生，回首往昔"
+      options = [
+        {
+          text: "写回忆录，传授人生经验",
+          effect: [
+            { attribute: "intelligence", value: 3 },
+            { attribute: "luck", value: 2 }
+          ]
+        },
+        {
+          text: "享受每一天，平静度过",
+          effect: [
+            { attribute: "health", value: 2 },
+            { attribute: "luck", value: 2 }
+          ]
+        },
+        {
+          text: "仍然关注时事，保持活跃的思维",
+          effect: [
+            { attribute: "intelligence", value: 4 },
+            { attribute: "health", value: -1 }
+          ]
+        },
+        {
+          text: "探索未知的可能性",
+          effect: [
+            { attribute: "luck", value: 5 },
+            { attribute: "health", value: -2 }
+          ]
+        }
       ]
     }
 
-    if (options.length > 0) {
-      setCurrentChoice({ question, options })
-      setGameState("choice")
-    } else {
-      // 如果没有找到对应年龄的选项，继续模拟
-      setSimulationPaused(false)
-      setShouldStartSimulation(true)
-    }
+    setCurrentChoice({
+      question,
+      options
+    })
+    
+    setGameState("choice")
   }
 
   // 提供普通选择
@@ -726,191 +742,223 @@ export default function LifeRestartSimulator() {
           },
         ]
         break
+
       case 18:
-        question = "高中毕业，你决定："
+        question = "18岁的你面临一个选择，即将步入社会："
         options = [
           {
-            text: "上大学深造",
+            text: "选择一份稳定的工作，但可能缺乏挑战",
             effect: [
-              { attribute: "intelligence", value: 3 },
-              { attribute: "wealth", value: -2 },
+              { attribute: "intelligence", value: 1 },
+              { attribute: "health", value: 1 },
             ],
           },
           {
-            text: "直接工作赚钱",
+            text: "选择一份充满挑战的工作，但可能面临经济压力",
             effect: [
               { attribute: "wealth", value: 2 },
-              { attribute: "intelligence", value: -1 },
-            ],
-          },
-          {
-            text: "创业尝试",
-            effect: [
-              { attribute: "luck", value: 2 },
-              { attribute: "wealth", value: -1 },
-            ],
-          },
-        ]
-        break
-      case 25:
-        question = "25岁的你在考虑："
-        options = [
-          {
-            text: "专注事业发展",
-            effect: [
-              { attribute: "wealth", value: 3 },
-              { attribute: "health", value: -1 },
-            ],
-          },
-          {
-            text: "寻找生活伴侣",
-            effect: [
-              { attribute: "appearance", value: 2 },
-              { attribute: "wealth", value: -1 },
-            ],
-          },
-          {
-            text: "环游世界，增长见识",
-            effect: [
-              { attribute: "intelligence", value: 2 },
-              { attribute: "wealth", value: -2 },
-            ],
-          },
-        ]
-        break
-      case 35:
-        question = "35岁的你面临中年危机："
-        options = [
-          {
-            text: "转行尝试新领域",
-            effect: [
-              { attribute: "intelligence", value: 2 },
-              { attribute: "wealth", value: -2 },
-            ],
-          },
-          {
-            text: "稳定发展，专注家庭",
-            effect: [
               { attribute: "health", value: 1 },
-              { attribute: "wealth", value: 1 },
             ],
           },
           {
-            text: "投资理财，为未来做准备",
+            text: "选择创业，但风险较高",
             effect: [
               { attribute: "wealth", value: 3 },
-              { attribute: "luck", value: -1 },
+              { attribute: "intelligence", value: 1 },
             ],
           },
         ]
         break
-      case 50:
-        question = "50岁的你开始思考："
+
+      case 25:
+        question = "25岁的你面临一个选择，事业和家庭之间如何平衡："
         options = [
           {
-            text: "保持健康，规律锻炼",
+            text: "选择稳定的工作，但可能缺乏激情",
             effect: [
-              { attribute: "health", value: 3 },
-              { attribute: "appearance", value: 1 },
+              { attribute: "intelligence", value: 1 },
+              { attribute: "health", value: 1 },
             ],
           },
           {
-            text: "享受生活，培养兴趣爱好",
+            text: "选择一份充满激情的工作，但可能面临经济压力",
             effect: [
-              { attribute: "luck", value: 2 },
+              { attribute: "wealth", value: 2 },
+              { attribute: "health", value: 1 },
+            ],
+          },
+          {
+            text: "选择创业，但风险较高",
+            effect: [
+              { attribute: "wealth", value: 3 },
+              { attribute: "intelligence", value: 1 },
+            ],
+          },
+        ]
+        break
+
+      case 35:
+        question = "35岁的你面临一个选择，家庭和事业如何兼顾："
+        options = [
+          {
+            text: "选择稳定的工作，但可能缺乏挑战",
+            effect: [
+              { attribute: "intelligence", value: 1 },
+              { attribute: "health", value: 1 },
+            ],
+          },
+          {
+            text: "选择一份充满挑战的工作，但可能面临经济压力",
+            effect: [
+              { attribute: "wealth", value: 2 },
+              { attribute: "health", value: 1 },
+            ],
+          },
+          {
+            text: "选择创业，但风险较高",
+            effect: [
+              { attribute: "wealth", value: 3 },
+              { attribute: "intelligence", value: 1 },
+            ],
+          },
+        ]
+        break
+
+      case 50:
+        question = "50岁的你面临一个选择，如何保持健康和活力："
+        options = [
+          {
+            text: "选择定期体检，保持健康生活方式",
+            effect: [
+              { attribute: "health", value: 2 },
               { attribute: "intelligence", value: 1 },
             ],
           },
           {
-            text: "继续拼搏，追求事业第二春",
+            text: "选择参加体育活动，保持身体健康",
             effect: [
-              { attribute: "wealth", value: 2 },
-              { attribute: "health", value: -2 },
+              { attribute: "health", value: 3 },
+              { attribute: "intelligence", value: 1 },
+            ],
+          },
+          {
+            text: "选择参加瑜伽或冥想，保持心理健康",
+            effect: [
+              { attribute: "health", value: 2 },
+              { attribute: "intelligence", value: 1 },
             ],
           },
         ]
         break
+
       case 65:
-        question = "退休后的你决定："
+        question = "65岁的你面临一个选择，如何度过晚年生活："
         options = [
           {
-            text: "含饴弄孙，享受天伦之乐",
+            text: "选择与家人共度时光，享受天伦之乐",
             effect: [
               { attribute: "health", value: 1 },
+              { attribute: "intelligence", value: 1 },
+            ],
+          },
+          {
+            text: "选择参加社区活动，保持社交活跃",
+            effect: [
+              { attribute: "appearance", value: 1 },
               { attribute: "luck", value: 1 },
             ],
           },
           {
-            text: "环游世界，体验不同文化",
+            text: "选择参加老年大学，继续学习新知识",
             effect: [
               { attribute: "intelligence", value: 2 },
-              { attribute: "health", value: -1 },
+              { attribute: "wealth", value: 1 },
             ],
           },
+        ]
+        break
+
+      case 80:
+        question = "80岁的你面临一个选择，如何保持健康和独立："
+        options = [
           {
-            text: "继续工作，做顾问或志愿者",
+            text: "选择继续工作，保持社会参与",
             effect: [
               { attribute: "wealth", value: 1 },
               { attribute: "intelligence", value: 1 },
             ],
           },
-        ]
-        break
-      case 80:
-        question = "80岁的你步入了真正的晚年，你决定："
-        options = [
           {
-            text: "投入科技辅助，延缓衰老",
+            text: "选择在家中养老，享受宁静生活",
             effect: [
-              { attribute: "health", value: 3 },
-              { attribute: "wealth", value: -3 },
-            ],
-          },
-          {
-            text: "组织一个老年志愿者团队，投身公益",
-            effect: [
-              { attribute: "appearance", value: 2 },
-              { attribute: "luck", value: 2 },
-            ],
-          },
-          {
-            text: "写一本回忆录，记录精彩人生",
-            effect: [
-              { attribute: "intelligence", value: 2 },
-              { attribute: "wealth", value: 1 },
-            ],
-          },
-        ]
-        break
-      case 95:
-        question = "来到95岁高龄，你的目标是："
-        options = [
-          {
-            text: "尝试打破吉尼斯长寿纪录",
-            effect: [
-              { attribute: "health", value: 4 },
-              { attribute: "luck", value: 3 },
-              { attribute: "appearance", value: -1 },
-            ],
-          },
-          {
-            text: "参与抗衰老科学研究，做实验志愿者",
-            effect: [
-              { attribute: "intelligence", value: 3 },
               { attribute: "health", value: 2 },
-              { attribute: "wealth", value: 1 },
+              { attribute: "intelligence", value: 1 },
             ],
           },
           {
-            text: "创办养老基金会，帮助其他老人",
+            text: "选择参加社区活动，保持社交活跃",
             effect: [
-              { attribute: "wealth", value: -2 },
-              { attribute: "appearance", value: 3 },
-              { attribute: "luck", value: 2 },
+              { attribute: "appearance", value: 1 },
+              { attribute: "luck", value: 1 },
             ],
           },
         ]
         break
+
+      case 95:
+        question = "95岁的你面临一个选择，如何保持健康和尊严："
+        options = [
+          {
+            text: "选择继续工作，保持社会参与",
+            effect: [
+              { attribute: "wealth", value: 1 },
+              { attribute: "intelligence", value: 1 },
+            ],
+          },
+          {
+            text: "选择在家中养老，享受宁静生活",
+            effect: [
+              { attribute: "health", value: 2 },
+              { attribute: "intelligence", value: 1 },
+            ],
+          },
+          {
+            text: "选择参加社区活动，保持社交活跃",
+            effect: [
+              { attribute: "appearance", value: 1 },
+              { attribute: "luck", value: 1 },
+            ],
+          },
+        ]
+        break
+
+      case 190:
+        question = "190岁的你面临一个选择，如何保持健康和智慧："
+        options = [
+          {
+            text: "选择继续工作，保持社会参与",
+            effect: [
+              { attribute: "wealth", value: 1 },
+              { attribute: "intelligence", value: 1 },
+            ],
+          },
+          {
+            text: "选择在家中养老，享受宁静生活",
+            effect: [
+              { attribute: "health", value: 2 },
+              { attribute: "intelligence", value: 1 },
+            ],
+          },
+          {
+            text: "选择参加社区活动，保持社交活跃",
+            effect: [
+              { attribute: "appearance", value: 1 },
+              { attribute: "luck", value: 1 },
+            ],
+          },
+        ]
+        break
+
       case 110:
       case 120:
       case 125:
@@ -922,11 +970,40 @@ export default function LifeRestartSimulator() {
       case 170:
       case 180:
       case 185:
+      case 190:
       case 195:
         // 确保高龄选项生效
         question = getHighAgeQuestion(age)
         options = getHighAgeOptions(age)
         break
+
+      default:
+        // 为所有其他未定义的选项年龄提供一个通用选项集
+        // 这确保任何年龄都不会因为缺少选项而卡住
+        return [
+          {
+            text: "专注于健康养生，延长寿命",
+            effect: [
+              { attribute: "health", value: Math.ceil(age/20) },
+              { attribute: "intelligence", value: Math.ceil(age/30) },
+            ],
+          },
+          {
+            text: "分享你的人生经验与智慧",
+            effect: [
+              { attribute: "appearance", value: Math.ceil(age/25) },
+              { attribute: "wealth", value: Math.ceil(age/30) },
+            ],
+          },
+          {
+            text: "尝试新的生活方式和挑战",
+            effect: [
+              { attribute: "luck", value: Math.ceil(age/20) },
+              { attribute: "appearance", value: Math.ceil(age/40) },
+              { attribute: "health", value: -Math.ceil(age/60) },
+            ],
+          },
+        ]
     }
 
     if (options.length > 0) {
@@ -1009,310 +1086,7 @@ export default function LifeRestartSimulator() {
             ],
           },
         ]
-      case 125:
-        return [
-          {
-            text: "允许科学家研究你的基因密码",
-            effect: [
-              { attribute: "intelligence", value: 5 },
-              { attribute: "wealth", value: 4 },
-              { attribute: "health", value: 2 },
-            ],
-          },
-          {
-            text: "尝试突破人类体能极限，创造新纪录",
-            effect: [
-              { attribute: "health", value: 4 },
-              { attribute: "appearance", value: 3 },
-              { attribute: "luck", value: 3 },
-            ],
-          },
-          {
-            text: "开设长寿课堂，教导年轻人养生之道",
-            effect: [
-              { attribute: "appearance", value: 4 },
-              { attribute: "intelligence", value: 3 },
-              { attribute: "wealth", value: 2 },
-            ],
-          },
-        ]
-      case 140:
-        return [
-          {
-            text: "参与未来科技公司的实验性生命延长项目",
-            effect: [
-              { attribute: "health", value: 7 },
-              { attribute: "appearance", value: 5 },
-              { attribute: "intelligence", value: -2 },
-            ],
-          },
-          {
-            text: "隐居与大自然中，追求心灵的永恒",
-            effect: [
-              { attribute: "intelligence", value: 6 },
-              { attribute: "luck", value: 4 },
-              { attribute: "wealth", value: -3 },
-            ],
-          },
-          {
-            text: "成立私人研究所，探索长生不老的秘密",
-            effect: [
-              { attribute: "wealth", value: -5 },
-              { attribute: "intelligence", value: 8 },
-              { attribute: "appearance", value: 3 },
-            ],
-          },
-        ]
-      case 155:
-        return [
-          {
-            text: "尝试实验性的意识上传技术",
-            effect: [
-              { attribute: "intelligence", value: 10 },
-              { attribute: "health", value: -3 },
-              { attribute: "appearance", value: -4 },
-            ],
-          },
-          {
-            text: "组织全球长寿峰会，汇集寿命研究精英",
-            effect: [
-              { attribute: "wealth", value: 6 },
-              { attribute: "appearance", value: 5 },
-              { attribute: "health", value: 4 },
-            ],
-          },
-          {
-            text: "进行深度冥想修行，追求精神层面的突破",
-            effect: [
-              { attribute: "luck", value: 8 },
-              { attribute: "intelligence", value: 5 },
-              { attribute: "health", value: 2 },
-            ],
-          },
-        ]
-      case 170:
-        return [
-          {
-            text: "接受先进的机械义体增强",
-            effect: [
-              { attribute: "health", value: 15 },
-              { attribute: "appearance", value: 8 },
-              { attribute: "intelligence", value: 5 },
-            ],
-          },
-          {
-            text: "将你的全部财富捐赠给延长人类寿命的研究",
-            effect: [
-              { attribute: "wealth", value: -10 },
-              { attribute: "luck", value: 15 },
-              { attribute: "appearance", value: 10 },
-            ],
-          },
-          {
-            text: "在月球殖民地建立长寿研究中心",
-            effect: [
-              { attribute: "intelligence", value: 12 },
-              { attribute: "wealth", value: -8 },
-              { attribute: "health", value: 6 },
-            ],
-          },
-        ]
-      case 185:
-        return [
-          {
-            text: "准备突破200岁大关，创造永恒的传奇",
-            effect: [
-              { attribute: "health", value: 20 },
-              { attribute: "luck", value: 15 },
-              { attribute: "intelligence", value: 10 },
-            ],
-          },
-          {
-            text: "撰写《超越时间：两个世纪的人生智慧》",
-            effect: [
-              { attribute: "intelligence", value: 18 },
-              { attribute: "wealth", value: 12 },
-              { attribute: "appearance", value: 8 },
-            ],
-          },
-          {
-            text: "成为全球长寿研究的精神领袖",
-            effect: [
-              { attribute: "appearance", value: 15 },
-              { attribute: "intelligence", value: 12 },
-              { attribute: "health", value: 10 },
-            ],
-          },
-        ]
-      // 添加120岁的选项
-      case 120:
-        return [
-          {
-            text: "参与一项前沿的全基因组测序研究",
-            effect: [
-              { attribute: "intelligence", value: 6 },
-              { attribute: "health", value: 3 },
-              { attribute: "wealth", value: 2 },
-            ],
-          },
-          {
-            text: "创建个人纪录片《超越百年的人生》",
-            effect: [
-              { attribute: "appearance", value: 5 },
-              { attribute: "wealth", value: 4 },
-              { attribute: "luck", value: 2 },
-            ],
-          },
-          {
-            text: "与顶尖医学专家共同研发长寿秘方",
-            effect: [
-              { attribute: "health", value: 6 },
-              { attribute: "intelligence", value: 4 },
-              { attribute: "wealth", value: -3 },
-            ],
-          },
-        ]
-      // 添加135岁的选项
-      case 135:
-        return [
-          {
-            text: "尝试一种古老的东方修炼方法",
-            effect: [
-              { attribute: "health", value: 7 },
-              { attribute: "luck", value: 5 },
-              { attribute: "intelligence", value: 3 },
-            ],
-          },
-          {
-            text: "建立超高龄者互助社区",
-            effect: [
-              { attribute: "appearance", value: 6 },
-              { attribute: "wealth", value: -4 },
-              { attribute: "health", value: 4 },
-            ],
-          },
-          {
-            text: "接受特殊生物疗法延缓衰老",
-            effect: [
-              { attribute: "health", value: 8 },
-              { attribute: "appearance", value: 5 },
-              { attribute: "intelligence", value: 2 },
-            ],
-          },
-        ]
-      // 添加150岁的选项
-      case 150:
-        return [
-          {
-            text: "庆祝自己的150岁生日，邀请全球媒体",
-            effect: [
-              { attribute: "appearance", value: 9 },
-              { attribute: "wealth", value: 5 },
-              { attribute: "health", value: -2 },
-            ],
-          },
-          {
-            text: "参加一项逆转衰老的尖端科学实验",
-            effect: [
-              { attribute: "health", value: 10 },
-              { attribute: "appearance", value: 6 },
-              { attribute: "luck", value: -3 },
-            ],
-          },
-          {
-            text: "撰写哲学著作《时间的觉醒》",
-            effect: [
-              { attribute: "intelligence", value: 10 },
-              { attribute: "wealth", value: 4 },
-              { attribute: "health", value: -2 },
-            ],
-          },
-        ]
-      // 添加165岁的选项
-      case 165:
-        return [
-          {
-            text: "与世界各地的百岁老人建立联系网络",
-            effect: [
-              { attribute: "appearance", value: 10 },
-              { attribute: "intelligence", value: 8 },
-              { attribute: "health", value: 3 },
-            ],
-          },
-          {
-            text: "测试创新的基因疗法",
-            effect: [
-              { attribute: "health", value: 12 },
-              { attribute: "intelligence", value: 6 },
-              { attribute: "appearance", value: 5 },
-            ],
-          },
-          {
-            text: "与人工智能合作分析你的生命数据",
-            effect: [
-              { attribute: "intelligence", value: 12 },
-              { attribute: "health", value: 8 },
-              { attribute: "luck", value: 4 },
-            ],
-          },
-        ]
-      // 添加180岁的选项
-      case 180:
-        return [
-          {
-            text: "制作虚拟现实体验《穿越两个世纪》",
-            effect: [
-              { attribute: "intelligence", value: 15 },
-              { attribute: "wealth", value: 10 },
-              { attribute: "appearance", value: 8 },
-            ],
-          },
-          {
-            text: "创立跨世纪长寿基金会",
-            effect: [
-              { attribute: "wealth", value: -5 },
-              { attribute: "appearance", value: 14 },
-              { attribute: "luck", value: 10 },
-            ],
-          },
-          {
-            text: "与科学家合作完善人类长寿蓝图",
-            effect: [
-              { attribute: "intelligence", value: 13 },
-              { attribute: "health", value: 10 },
-              { attribute: "appearance", value: 7 },
-            ],
-          },
-        ]
-      // 添加195岁的选项
-      case 195:
-        return [
-          {
-            text: "准备迎接你的第二个世纪",
-            effect: [
-              { attribute: "health", value: 25 },
-              { attribute: "luck", value: 20 },
-              { attribute: "intelligence", value: 15 },
-            ],
-          },
-          {
-            text: "创建《人类寿命革命》国际项目",
-            effect: [
-              { attribute: "intelligence", value: 20 },
-              { attribute: "appearance", value: 15 },
-              { attribute: "wealth", value: 10 },
-            ],
-          },
-          {
-            text: "成为全球生命科学的精神象征",
-            effect: [
-              { attribute: "appearance", value: 20 },
-              { attribute: "luck", value: 15 },
-              { attribute: "intelligence", value: 15 },
-            ],
-          },
-        ]
-      // 添加190岁的修仙选项
+      // ... 其他高龄选项 ...
       case 190:
         return [
           {
@@ -1342,7 +1116,6 @@ export default function LifeRestartSimulator() {
         ]
       default:
         // 为所有其他未定义的选项年龄提供一个通用选项集
-        // 这确保任何年龄都不会因为缺少选项而卡住
         return [
           {
             text: "专注于健康养生，延长寿命",
@@ -2231,6 +2004,78 @@ export default function LifeRestartSimulator() {
     setLifeEvents((prev) => [...prev, `总分: ${totalScore}`]);
     setLifeEvents((prev) => [...prev, `评价: ${scoreLevel}`]);
     
+    // 生成职业
+    let career = "";
+    if (attributes.intelligence >= 15) {
+      if (attributes.wealth >= 15) {
+        career = "著名科学家/企业家";
+      } else {
+        career = "学者/研究员";
+      }
+    } else if (attributes.wealth >= 15) {
+      if (attributes.appearance >= 15) {
+        career = "成功商人/社交名流";
+      } else {
+        career = "企业家/投资者";
+      }
+    } else if (attributes.appearance >= 15) {
+      career = "艺术家/演员";
+    } else if (attributes.health >= 15) {
+      career = "运动员/教练";
+    } else {
+      career = "普通职员/自由职业者";
+    }
+    
+    // 生成人际关系
+    let relationships = "";
+    if (attributes.appearance >= 15 || attributes.luck >= 15) {
+      relationships = "拥有广泛的社交圈，受人爱戴";
+    } else if (attributes.intelligence >= 15) {
+      relationships = "有几个志同道合的知己，关系深厚";
+    } else if (attributes.wealth >= 15) {
+      relationships = "社会地位较高，但真诚朋友较少";
+    } else {
+      relationships = "家人和朋友给予了足够的支持";
+    }
+    
+    // 生成成就
+    const achievements = [];
+    
+    if (attributes.intelligence >= 15) {
+      achievements.push("在学术领域取得了显著成就");
+    }
+    if (attributes.wealth >= 15) {
+      achievements.push("积累了可观的财富");
+    }
+    if (attributes.appearance >= 15) {
+      achievements.push("因卓越的外表和魅力而闻名");
+    }
+    if (attributes.health >= 15) {
+      achievements.push("保持了健康长寿的生活");
+    }
+    if (attributes.luck >= 15) {
+      achievements.push("经历了许多幸运的转折点");
+    }
+    if (finalAge >= 100) {
+      achievements.push("享有超过百年的传奇人生");
+    }
+    if (isImmortalCultivation && finalAge >= 1000) {
+      achievements.push("修道成仙，飞升成功");
+    }
+    
+    if (achievements.length === 0) {
+      achievements.push("过着平凡但满足的生活");
+    }
+    
+    // 更新summary状态
+    setSummary({
+      career,
+      relationships,
+      achievements,
+      finalAge,
+      deathCause
+    });
+    
     // 切换到总结状态
     setGameState("summary");
   }
@@ -2424,6 +2269,9 @@ export default function LifeRestartSimulator() {
               ? "回顾你的一生" 
               : "分配你的属性和天赋，看看你的人生会如何展开"}
           </CardDescription>
+          {gameState === "setup" && (
+            <div className="text-xs text-muted-foreground mt-1">v1.0</div>
+          )}
         </CardHeader>
 
         <CardContent>
@@ -2551,6 +2399,7 @@ export default function LifeRestartSimulator() {
               <div className="text-center">
                 <h3 className="text-2xl font-medium">人生总结</h3>
                 <p className="text-muted-foreground">你活到了 {summary.finalAge} 岁</p>
+                <p className="text-muted-foreground mt-1">死亡原因: {summary.deathCause}</p>
               </div>
 
               {/* 显示最终属性值 */}

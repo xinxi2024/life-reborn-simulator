@@ -411,9 +411,9 @@ export default function LifeRestartSimulator() {
               `  → 寿命增加50年！`
             ])
             
-            // 更新下一次渡劫年龄
+            // 更新下一次渡劫年龄，设为固定每50年一次
             setTribulationsCount((prev) => prev + 1)
-            setNextTribulationAge((prev) => prev + 50)
+            setNextTribulationAge((prev) => prev + 50) // 每50年渡劫一次
             setMaxAgeLimit((prev) => prev + 50)
             
             // 增加属性
@@ -465,8 +465,26 @@ export default function LifeRestartSimulator() {
           return newAge
         }
         // 在关键年龄提供选择
+        else if (newAge === 190) {
+          // 添加日志
+          console.log("已达到190岁，提供修仙选择");
+          
+          // 暂停模拟
+          setSimulationPaused(true);
+          setShouldStartSimulation(false);
+          
+          // 清除当前计时器
+          if (timerID) {
+            clearInterval(timerID);
+            timerID = null;
+          }
+          
+          // 呈现选择
+          presentChoice(newAge);
+          return newAge;
+        } 
         else if (newAge === 12 || newAge === 18 || newAge === 25 || newAge === 35 || newAge === 50 || 
-                newAge === 65 || newAge === 80 || newAge === 95 || newAge === 190 ||
+                newAge === 65 || newAge === 80 || newAge === 95 ||
                 (newAge >= 110 && newAge % 15 === 0)) { // 110岁后每15年一次选择
           presentChoice(newAge)
           setSimulationPaused(true)
@@ -515,10 +533,27 @@ export default function LifeRestartSimulator() {
         if (newAge >= 100 && !isImmortalCultivation) {
           // 健康、幸运和智力都会影响能否活到超高龄
           const superAgeChance = (attributes.health * 0.6 + attributes.luck * 0.3 + attributes.intelligence * 0.1) / 100;
-          if (Math.random() > superAgeChance) {
-            maxAge = Math.min(maxAge, newAge + 5 + Math.floor(Math.random() * 10)); // 随机增加5-15年寿命
+          
+          // 更改随机逻辑，提高存活概率，确保高属性角色能活到190岁
+          if (Math.random() > superAgeChance * 1.5) { // 降低死亡概率
+            maxAge = Math.min(maxAge, newAge + 10 + Math.floor(Math.random() * 20)); // 增加额外的10-30年寿命
           } else {
-            maxAge = Math.max(maxAge, 150); // 最低保证150岁寿命上限
+            // 确保有机会达到190岁
+            maxAge = Math.max(maxAge, 190); // 提高最低寿命保证至190岁
+            
+            // 添加日志
+            if (newAge === 100) {
+              console.log("高寿命计算: 提高存活年龄上限至" + maxAge);
+            }
+          }
+          
+          // 特别处理接近190岁的情况
+          if (newAge >= 180 && newAge < 190) {
+            // 确保能活到190岁
+            maxAge = Math.max(maxAge, 195);
+            
+            // 添加日志
+            console.log(`接近190岁: 确保能够达到修仙选择年龄，设置寿命上限为${maxAge}`);
           }
         }
         
@@ -715,7 +750,10 @@ export default function LifeRestartSimulator() {
     let question = ""
     let options: ChoiceOption[] = []
 
-    switch (age) {
+    // 添加日志记录
+    console.log(`presentChoice被调用，年龄: ${age}岁`);
+
+    switch(age) {
       case 12:
         question = "12岁的你面临一个选择，课余时间你想要："
         options = [
@@ -933,31 +971,36 @@ export default function LifeRestartSimulator() {
         break
 
       case 190:
-        question = "190岁的你面临一个选择，如何保持健康和智慧："
+        // 特殊处理190岁的选项
+        console.log("处理190岁的选项");
+        question = "190岁的你站在人类极限的边缘，科学无法解释你的存在，是继续安享晚年，还是追求更高的境界？"
         options = [
           {
-            text: "选择继续工作，保持社会参与",
+            text: "安享晚年，静待自然规律",
             effect: [
-              { attribute: "wealth", value: 1 },
-              { attribute: "intelligence", value: 1 },
+              { attribute: "health", value: 10 },
+              { attribute: "luck", value: 5 },
+              { attribute: "intelligence", value: 5 },
             ],
           },
           {
-            text: "选择在家中养老，享受宁静生活",
+            text: "我命由我不由天！开始修仙之路",
             effect: [
-              { attribute: "health", value: 2 },
-              { attribute: "intelligence", value: 1 },
+              { attribute: "intelligence", value: 20 },
+              { attribute: "health", value: 15 },
             ],
+            isImmortalCultivation: true
           },
           {
-            text: "选择参加社区活动，保持社交活跃",
+            text: "总结一生智慧，留给后人",
             effect: [
-              { attribute: "appearance", value: 1 },
-              { attribute: "luck", value: 1 },
+              { attribute: "intelligence", value: 15 },
+              { attribute: "appearance", value: 10 },
+              { attribute: "wealth", value: 8 },
             ],
           },
-        ]
-        break
+        ];
+        break;
 
       case 110:
       case 120:
@@ -1005,6 +1048,9 @@ export default function LifeRestartSimulator() {
           },
         ]
     }
+
+    // 记录选项内容
+    console.log(`提供的选项:`, options);
 
     if (options.length > 0) {
       setCurrentChoice({ question, options })
@@ -1161,6 +1207,200 @@ export default function LifeRestartSimulator() {
       return baseEvents.map(text => ({ text }));
     };
 
+    // 添加修仙相关事件 - 当角色选择修仙且年龄大于200岁时使用
+    const cultivationEvents: AttributeEvent[] = [
+      { 
+        text: "你在深山中发现了一处灵气充沛的洞府，修为大增。", 
+        effect: [
+          { attribute: "intelligence", value: 2 },
+          { attribute: "health", value: 2 }
+        ] 
+      },
+      { 
+        text: "你感悟天地大道，对修炼有了新的理解。", 
+        effect: [{ attribute: "intelligence", value: 3 }] 
+      },
+      { 
+        text: "你成功炼制出一枚延寿丹，服用后精神焕发。", 
+        effect: [{ attribute: "health", value: 3 }] 
+      },
+      { 
+        text: "你在古籍中发现了失传已久的修炼心法，修为更上一层楼。", 
+        effect: [
+          { attribute: "intelligence", value: 2 },
+          { attribute: "appearance", value: 1 }
+        ] 
+      },
+      { 
+        text: "你成功采集到了千年灵芝，炼制成丹药后服用。", 
+        effect: [{ attribute: "health", value: 4 }] 
+      },
+      { 
+        text: "一位隐世的修道高人指点了你修行中的困惑。", 
+        effect: [
+          { attribute: "intelligence", value: 3 },
+          { attribute: "luck", value: 2 }
+        ] 
+      },
+      { 
+        text: "你的修为突破瓶颈，灵气运转更加自如。", 
+        effect: [
+          { attribute: "health", value: 2 },
+          { attribute: "appearance", value: 2 }
+        ] 
+      },
+      { 
+        text: "你成功炼化了一颗天外陨石中的神秘能量。", 
+        effect: [
+          { attribute: "intelligence", value: 3 },
+          { attribute: "health", value: 1 }
+        ] 
+      },
+      { 
+        text: "你闭关三月，修为精进，容颜更加出尘脱俗。", 
+        effect: [
+          { attribute: "appearance", value: 3 },
+          { attribute: "intelligence", value: 1 }
+        ] 
+      },
+      { 
+        text: "你意外获得了一位仙人遗留的修炼秘籍。", 
+        effect: [
+          { attribute: "intelligence", value: 4 },
+          { attribute: "luck", value: 2 }
+        ] 
+      }
+    ];
+
+    // 添加修仙危机事件
+    const cultivationCrisisEvents: HealthCrisisEvent[] = [
+      {
+        text: "走火入魔，经脉受损，修为倒退。",
+        effect: [
+          { attribute: "health", value: -5 },
+          { attribute: "intelligence", value: -3 }
+        ],
+        deathChance: 0.1,
+      },
+      {
+        text: "引来天地异象，遭遇小型劫难。",
+        effect: [
+          { attribute: "health", value: -4 },
+          { attribute: "luck", value: -2 }
+        ],
+        deathChance: 0.15,
+      },
+      {
+        text: "与其他修行者争夺灵药，受了重伤。",
+        effect: [
+          { attribute: "health", value: -6 },
+          { attribute: "appearance", value: -2 }
+        ],
+        deathChance: 0.12,
+      },
+      {
+        text: "修炼奇功导致真气紊乱，需闭关调养。",
+        effect: [
+          { attribute: "health", value: -3 },
+          { attribute: "intelligence", value: -2 }
+        ],
+        deathChance: 0.08,
+      }
+    ];
+
+    // 修仙普通生活事件
+    const cultivationLifeEvents = [
+      "潜心修炼，功力略有精进。",
+      "研读古籍，领悟了一些修道心得。",
+      "在山间采集了一些药草。",
+      "与其他修行者切磋修为。",
+      "祭炼法器，增强了自己的战斗力。",
+      "静坐冥想，感悟天地灵气。",
+      "练习御剑飞行，提高了灵活性。",
+      "炼制了一些基础丹药。",
+      "布置洞府阵法，增强安全保障。",
+      "探索了一处远古遗迹，收获颇丰。",
+      "在瀑布下打坐，修为有所增长。",
+      "拜访了一位隐居的老道，请教修行问题。",
+      "帮助凡人解决了一些困难，积累功德。",
+      "斩妖除魔，为民除害。",
+      "感悟自然之道，心境更加平和。"
+    ];
+
+    // 判断是否使用修仙事件
+    if (isImmortalCultivation && age > 200) {
+      // 检查是否是危机事件 (10%概率)
+      if (Math.random() < 0.1) {
+        const crisisEvent = cultivationCrisisEvents[Math.floor(Math.random() * cultivationCrisisEvents.length)];
+        
+        // 记录事件
+        setLifeEvents((prev) => [...prev, `${age}岁: ${crisisEvent.text}`]);
+        
+        // 应用属性效果
+        if (crisisEvent.effect) {
+          const newAttributes = { ...attributes };
+          
+          crisisEvent.effect.forEach((effect) => {
+            const newValue = Math.min(
+              attributeCaps[effect.attribute],
+              Math.max(1, newAttributes[effect.attribute] + effect.value)
+            );
+            newAttributes[effect.attribute] = newValue;
+            
+            // 显示属性变化
+            const changeText = `  → ${attributeNames[effect.attribute]} ${effect.value > 0 ? "+" : ""}${effect.value}`;
+            setLifeEvents((prev) => [...prev, changeText]);
+          });
+          
+          setAttributes(newAttributes);
+        }
+        
+        // 检查是否死亡
+        if (crisisEvent.deathChance && Math.random() < crisisEvent.deathChance) {
+          endLife(age, crisisEvent.text);
+        }
+        
+        return; // 已经生成了事件，结束函数
+      }
+      
+      // 检查是否生成属性事件 (60%概率)
+      if (Math.random() < 0.6) {
+        const event = cultivationEvents[Math.floor(Math.random() * cultivationEvents.length)];
+        
+        // 记录事件
+        setLifeEvents((prev) => [...prev, `${age}岁: ${event.text}`]);
+        
+        // 应用属性效果
+        if (event.effect) {
+          const newAttributes = { ...attributes };
+          
+          event.effect.forEach((effect) => {
+            const newValue = Math.min(
+              attributeCaps[effect.attribute],
+              Math.max(1, newAttributes[effect.attribute] + effect.value)
+            );
+            newAttributes[effect.attribute] = newValue;
+            
+            // 显示属性变化
+            const changeText = `  → ${attributeNames[effect.attribute]} ${effect.value > 0 ? "+" : ""}${effect.value}`;
+            setLifeEvents((prev) => [...prev, changeText]);
+          });
+          
+          setAttributes(newAttributes);
+        }
+        
+        return; // 已经生成了事件，结束函数
+      }
+      
+      // 生成普通修仙生活事件 (剩余30%概率)
+      const event = cultivationLifeEvents[Math.floor(Math.random() * cultivationLifeEvents.length)];
+      setLifeEvents((prev) => [...prev, `${age}岁: ${event}`]);
+      
+      return; // 已经生成了事件，结束函数
+    }
+
+    // 以下是原来的事件生成逻辑，只有非修仙状态或修仙但未到200岁时才会执行
+    
     // 健康危机事件列表 - 随年龄增长风险增加
     const healthCrisisEvents: Record<string, HealthCrisisEvent[]> = {
       // 年轻人危机
@@ -2107,8 +2347,12 @@ export default function LifeRestartSimulator() {
       JSON.stringify(opt.effect) === JSON.stringify(effects)
     );
     
+    console.log("选择选项:", selectedOption); // 添加调试信息
+    
     // 检查是否为修仙选项
     if (selectedOption && selectedOption.isImmortalCultivation) {
+      console.log("选择了修仙选项！当前年龄:", currentAge); // 调试日志
+      
       // 记录选择
       const choiceEvent = `${currentAge}岁: 你选择了踏上修仙之路，追求超脱凡尘的境界。`;
       setLifeEvents((prev) => [...prev, choiceEvent]);
@@ -2121,15 +2365,16 @@ export default function LifeRestartSimulator() {
       // 设置修仙状态
       setIsImmortalCultivation(true);
       
-      // 设置第一次渡劫的年龄，确保从当前年龄开始计算
-      const firstTribulationAge = currentAge + 20; // 20年后第一次渡劫
+      // 设置第一次渡劫的年龄为200岁，而不是当前年龄+20
+      // 无论玩家在何时选择修仙，都在200岁进行第一次渡劫
+      const firstTribulationAge = 200; 
       setNextTribulationAge(firstTribulationAge);
       
       // 记录调试信息
       console.log(`设置修仙状态: true, 当前年龄: ${currentAge}, 第一次渡劫年龄: ${firstTribulationAge}`);
       
       // 增加寿命上限
-      setMaxAgeLimit(250);
+      setMaxAgeLimit(300); // 增加最初的寿命上限，确保能活到第一次渡劫
       
       // 应用效果
       const newAttributes = { ...attributes };

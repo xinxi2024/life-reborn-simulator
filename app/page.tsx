@@ -57,6 +57,8 @@ type Talent = {
 type ChoiceOption = {
   text: string
   effect: { attribute: AttributeType; value: number }[]
+  isRejuvenation?: boolean
+  isImmortalCultivation?: boolean
 }
 
 export default function LifeRestartSimulator() {
@@ -102,6 +104,12 @@ export default function LifeRestartSimulator() {
   const [activeTab, setActiveTab] = useState("attributes")
   const [shouldStartSimulation, setShouldStartSimulation] = useState(false)
   const [isInitialStart, setIsInitialStart] = useState(false)
+  
+  // 添加修仙状态管理
+  const [isImmortalCultivation, setIsImmortalCultivation] = useState(false)
+  const [tribulationsCount, setTribulationsCount] = useState(0)
+  const [nextTribulationAge, setNextTribulationAge] = useState(0)
+  const [maxAgeLimit, setMaxAgeLimit] = useState(200) // 默认寿命上限
 
   // 天赋列表
   const talents: Talent[] = [
@@ -355,6 +363,10 @@ export default function LifeRestartSimulator() {
     if (isInitialStart) {
       setCurrentAge(0)
       setLifeEvents([])
+      setIsImmortalCultivation(false)
+      setTribulationsCount(0)
+      setNextTribulationAge(0)
+      setMaxAgeLimit(200)
 
       // 记录选择的天赋
       if (selectedTalents.length > 0) {
@@ -379,6 +391,58 @@ export default function LifeRestartSimulator() {
         
         console.log(`模拟年龄增长：${newAge}岁`); // 调试日志
 
+        // 检查是否需要渡劫（修仙状态下）
+        if (isImmortalCultivation && newAge === nextTribulationAge) {
+          // 暂停模拟并触发渡劫
+          setSimulationPaused(true)
+          setShouldStartSimulation(false)
+          
+          // 渡劫成功率计算：初始40%，每次渡劫降低2%
+          const successRate = Math.max(0, 0.4 - (tribulationsCount * 0.02))
+          const isSuccess = Math.random() < successRate
+          
+          if (isSuccess) {
+            // 渡劫成功
+            setLifeEvents((prev) => [
+              ...prev, 
+              `${newAge}岁: 【渡劫】第${tribulationsCount + 1}次渡劫，天空电闪雷鸣...`,
+              `  → 你成功渡过天劫，修为更进一步！`,
+              `  → 寿命增加50年！`
+            ])
+            
+            // 更新下一次渡劫年龄
+            setTribulationsCount((prev) => prev + 1)
+            setNextTribulationAge((prev) => prev + 50)
+            setMaxAgeLimit((prev) => prev + 50)
+            
+            // 增加属性
+            setAttributes((prev) => ({
+              ...prev,
+              intelligence: Math.min(100, prev.intelligence + 5),
+              health: Math.min(100, prev.health + 5),
+              luck: Math.min(100, prev.luck + 3),
+            }))
+            
+            // 恢复模拟
+            setTimeout(() => {
+              setSimulationPaused(false)
+              setShouldStartSimulation(true)
+            }, 100)
+          } else {
+            // 渡劫失败，直接遭受天劫而死
+            setLifeEvents((prev) => [
+              ...prev, 
+              `${newAge}岁: 【渡劫】第${tribulationsCount + 1}次渡劫，天空电闪雷鸣...`,
+              `  → 天劫之力过于强大，你未能抵挡...`,
+              `  → 你被天雷击中，化为灰烬！`
+            ])
+            
+            // 结束生命
+            endLife(newAge, "在修仙渡劫中被天雷击中，化为灰烬")
+            return newAge
+          }
+        }
+
         // 根据属性生成随机生活事件
         if (newAge % 5 === 0 || Math.random() < 0.2) {
           generateEvent(newAge)
@@ -401,8 +465,8 @@ export default function LifeRestartSimulator() {
         }
         // 在关键年龄提供选择
         else if (newAge === 12 || newAge === 18 || newAge === 25 || newAge === 35 || newAge === 50 || 
-                 newAge === 65 || newAge === 80 || newAge === 95 || 
-                 (newAge >= 110 && newAge % 15 === 0)) { // 110岁后每15年一次选择
+                newAge === 65 || newAge === 80 || newAge === 95 || newAge === 190 ||
+                (newAge >= 110 && newAge % 15 === 0)) { // 110岁后每15年一次选择
           presentChoice(newAge)
           setSimulationPaused(true)
           setShouldStartSimulation(false)
@@ -416,17 +480,38 @@ export default function LifeRestartSimulator() {
           return newAge
         }
 
+        // 检查是否达到飞升条件
+        if (isImmortalCultivation && newAge >= 1000) {
+          // 飞升成仙
+          setLifeEvents((prev) => [
+            ...prev, 
+            `${newAge}岁: 【飞升】经过漫长的修炼，你终于修成正果！`,
+            `  → 霞光万道，天音阵阵，你踏上仙路，飞升成仙！`
+          ])
+          
+          // 结束生命
+          endLife(newAge, "功德圆满，飞升成仙")
+          
+          // 清除当前计时器
+          if (timerID) {
+            clearInterval(timerID)
+            timerID = null
+          }
+          
+          return newAge
+        }
+
         // 计算寿命
-        let maxAge = 70 + Math.floor(attributes.health * 3) + Math.floor(Math.random() * 10)
+        let maxAge = isImmortalCultivation ? maxAgeLimit : (70 + Math.floor(attributes.health * 3) + Math.floor(Math.random() * 10))
 
         // 检查是否有长寿天赋
         const hasLongevity = selectedTalents.some((t) => t.id === "longevity")
-        if (hasLongevity) {
+        if (hasLongevity && !isImmortalCultivation) {
           maxAge += 20
         }
         
         // 超过100岁的情况下有额外的长寿检查
-        if (newAge >= 100) {
+        if (newAge >= 100 && !isImmortalCultivation) {
           // 健康、幸运和智力都会影响能否活到超高龄
           const superAgeChance = (attributes.health * 0.6 + attributes.luck * 0.3 + attributes.intelligence * 0.1) / 100;
           if (Math.random() > superAgeChance) {
@@ -436,8 +521,8 @@ export default function LifeRestartSimulator() {
           }
         }
         
-        // 寿命上限为200岁
-        maxAge = Math.min(maxAge, 200);
+        // 寿命上限
+        maxAge = Math.min(maxAge, isImmortalCultivation ? 1000 : 200);
 
         if (newAge >= maxAge) {
           // 生命结束
@@ -465,7 +550,7 @@ export default function LifeRestartSimulator() {
         console.log("清理计时器"); // 调试日志
       }
     }
-  }, [shouldStartSimulation, simulationPaused, isInitialStart, selectedTalents, attributes])
+  }, [shouldStartSimulation, simulationPaused, isInitialStart, selectedTalents, attributes, isImmortalCultivation, tribulationsCount, nextTribulationAge, maxAgeLimit])
 
   // 添加自动滚动到底部的effect
   useEffect(() => {
@@ -489,6 +574,8 @@ export default function LifeRestartSimulator() {
             { attribute: "wealth", value: 5 },
             { attribute: "health", value: -3 },
           ],
+          isRejuvenation: true,
+          isImmortalCultivation: true
         },
         {
           text: "获得非凡的智慧，但需要牺牲一些社交能力",
@@ -496,6 +583,7 @@ export default function LifeRestartSimulator() {
             { attribute: "intelligence", value: 5 },
             { attribute: "appearance", value: -2 },
           ],
+          isImmortalCultivation: true
         },
         {
           text: "拒绝选择，保持生活的平衡",
@@ -511,6 +599,8 @@ export default function LifeRestartSimulator() {
             { attribute: "health", value: 5 },
             { attribute: "wealth", value: -3 },
           ],
+          isRejuvenation: true,
+          isImmortalCultivation: true
         },
         {
           text: "学习吸引他人的魅力秘诀，但会消耗你的精力",
@@ -518,6 +608,7 @@ export default function LifeRestartSimulator() {
             { attribute: "appearance", value: 5 },
             { attribute: "health", value: -2 },
           ],
+          isImmortalCultivation: true
         },
         {
           text: "获得财富增长的秘密，但会减少你的好运",
@@ -525,6 +616,7 @@ export default function LifeRestartSimulator() {
             { attribute: "wealth", value: 5 },
             { attribute: "luck", value: -3 },
           ],
+          isImmortalCultivation: true
         },
       ]
     } else if (age === 70) {
@@ -536,6 +628,8 @@ export default function LifeRestartSimulator() {
             { attribute: "health", value: 5 },
             { attribute: "luck", value: 2 },
           ],
+          isRejuvenation: true,
+          isImmortalCultivation: true
         },
         {
           text: "投资一项前沿的长寿科技研究",
@@ -544,6 +638,7 @@ export default function LifeRestartSimulator() {
             { attribute: "wealth", value: -4 },
             { attribute: "health", value: 3 },
           ],
+          isImmortalCultivation: true
         },
         {
           text: "收养几位年轻人为关门弟子，传授毕生所学",
@@ -551,6 +646,7 @@ export default function LifeRestartSimulator() {
             { attribute: "appearance", value: 2 },
             { attribute: "intelligence", value: 2 },
           ],
+          isImmortalCultivation: true
         },
       ]
     } else if (age === 100) {
@@ -563,6 +659,8 @@ export default function LifeRestartSimulator() {
             { attribute: "appearance", value: 4 },
             { attribute: "luck", value: -3 },
           ],
+          isRejuvenation: true,
+          isImmortalCultivation: true
         },
         {
           text: "接受全球媒体的专访，分享你的长寿秘诀",
@@ -571,6 +669,8 @@ export default function LifeRestartSimulator() {
             { attribute: "appearance", value: 3 },
             { attribute: "health", value: -2 },
           ],
+          isRejuvenation: true,
+          isImmortalCultivation: true
         },
         {
           text: "隐居深山，专注于寻找生命的终极意义",
@@ -579,6 +679,7 @@ export default function LifeRestartSimulator() {
             { attribute: "luck", value: 3 },
             { attribute: "wealth", value: -3 },
           ],
+          isImmortalCultivation: true
         },
       ]
     }
@@ -849,26 +950,28 @@ export default function LifeRestartSimulator() {
     switch(age) {
       case 110:
         return "超过百岁之后，你成为了世人瞩目的焦点："
-      case 125:
-        return "125岁的你成为了世界奇迹，医学研究者对你产生了浓厚兴趣："
-      case 140:
-        return "140岁高龄的你已经超越了医学认知的界限："
-      case 155:
-        return "在155岁这一不可思议的年龄，你接近了人类寿命的极限："
-      case 170:
-        return "在170岁这一前所未有的年龄，你已经成为人类史上的传奇："
-      case 185:
-        return "185岁的你已经见证了接近两个世纪的人类历史："
       case 120:
         return "120岁高龄，你已经成为超级百岁老人中的传奇："
+      case 125:
+        return "125岁的你成为了世界奇迹，医学研究者对你产生了浓厚兴趣："
       case 135:
         return "135岁的你让长寿专家们困惑不已："
+      case 140:
+        return "140岁高龄的你已经超越了医学认知的界限："
       case 150:
         return "半个世纪又一个世纪，150岁的你站在人类极限的边缘："
+      case 155:
+        return "在155岁这一不可思议的年龄，你接近了人类寿命的极限："
       case 165:
         return "165岁的你已成为全球瞩目的研究焦点："
+      case 170:
+        return "在170岁这一前所未有的年龄，你已经成为人类史上的传奇："
       case 180:
         return "180岁！你几乎已经跨越了两个世纪的人生历程："
+      case 185:
+        return "185岁的你已经见证了接近两个世纪的人类历史："
+      case 190:
+        return "190岁的你站在人类极限的边缘，科学无法解释你的存在，是继续安享晚年，还是追求更高的境界？"
       case 195:
         return "站在两个世纪的交界处，195岁的你即将创造历史："
       default:
@@ -1209,6 +1312,34 @@ export default function LifeRestartSimulator() {
             ],
           },
         ]
+      // 添加190岁的修仙选项
+      case 190:
+        return [
+          {
+            text: "安享晚年，静待自然规律",
+            effect: [
+              { attribute: "health", value: 10 },
+              { attribute: "luck", value: 5 },
+              { attribute: "intelligence", value: 5 },
+            ],
+          },
+          {
+            text: "我命由我不由天！开始修仙之路",
+            effect: [
+              { attribute: "intelligence", value: 20 },
+              { attribute: "health", value: 15 },
+            ],
+            isImmortalCultivation: true
+          },
+          {
+            text: "总结一生智慧，留给后人",
+            effect: [
+              { attribute: "intelligence", value: 15 },
+              { attribute: "appearance", value: 10 },
+              { attribute: "wealth", value: 8 },
+            ],
+          },
+        ]
       default:
         // 为所有其他未定义的选项年龄提供一个通用选项集
         // 这确保任何年龄都不会因为缺少选项而卡住
@@ -1239,71 +1370,6 @@ export default function LifeRestartSimulator() {
     }
   }
 
-  // 做出选择
-  const makeChoice = (effects: { attribute: AttributeType; value: number }[]) => {
-    // 应用选择的效果
-    const newAttributes = { ...attributes }
-
-    effects.forEach((effect) => {
-      // 检查是否有凤凰涅槃天赋（低谷反弹）
-      const hasPhoenixNirvana = selectedTalents.some((t) => t.id === "phoenix_nirvana")
-      let valueChange = effect.value
-
-      // 如果是负面效果且有凤凰涅槃天赋
-      if (effect.value < 0 && hasPhoenixNirvana) {
-        // 50%几率将负面效果减半
-        if (Math.random() < 0.5) {
-          valueChange = Math.ceil(effect.value / 2)
-        }
-      }
-
-      // 如果是财富增加且有黄金手指天赋
-      if (effect.attribute === "wealth" && effect.value > 0 && selectedTalents.some((t) => t.id === "golden_finger")) {
-        valueChange *= 2
-      }
-
-      // 应用效果，但不超过上限
-      const newValue = Math.min(
-        attributeCaps[effect.attribute],
-        Math.max(1, newAttributes[effect.attribute] + valueChange),
-      )
-      newAttributes[effect.attribute] = newValue
-    })
-
-    setAttributes(newAttributes)
-
-    // 记录选择
-    const choiceEvent = `${currentAge}岁: 你选择了 "${
-      currentChoice?.options.find((opt) => JSON.stringify(opt.effect) === JSON.stringify(effects))?.text
-    }"`
-
-    setLifeEvents((prev) => [...prev, choiceEvent])
-
-    // 显示属性变化
-    effects.forEach((effect) => {
-      // 检查是否有特殊天赋修改效果
-      let valueChange = effect.value
-
-      if (effect.attribute === "wealth" && effect.value > 0 && selectedTalents.some((t) => t.id === "golden_finger")) {
-        valueChange *= 2
-      }
-
-      const changeText = `${attributeNames[effect.attribute]} ${valueChange > 0 ? "+" : ""}${valueChange}`
-      setLifeEvents((prev) => [...prev, `  → ${changeText}`])
-    })
-
-    // 恢复模拟
-    setCurrentChoice(null)
-    setGameState("events")
-    
-    // 确保所有状态更新后重新启动模拟
-    setTimeout(() => {
-      setSimulationPaused(false)
-      setShouldStartSimulation(true)
-      console.log("选择后重新启动模拟"); // 调试日志
-    }, 100) // 增加一点延迟以确保状态更新完成
-  }
-
   // 生成随机事件
   const generateEvent = (age: number) => {
     // 创建属性影响事件类型，包含事件文本和属性效果
@@ -1312,9 +1378,128 @@ export default function LifeRestartSimulator() {
       effect?: { attribute: AttributeType; value: number }[];
     };
 
+    // 创建健康危机事件类型，包含事件文本、属性效果和死亡概率
+    type HealthCrisisEvent = AttributeEvent & {
+      deathChance?: number; // 事件可能导致死亡的概率 (0-1)
+    };
+
     // 将基础事件数组转换为包含可能属性效果的事件对象
     const createEvents = (baseEvents: string[]): AttributeEvent[] => {
       return baseEvents.map(text => ({ text }));
+    };
+
+    // 健康危机事件列表 - 随年龄增长风险增加
+    const healthCrisisEvents: Record<string, HealthCrisisEvent[]> = {
+      // 年轻人危机
+      youth: [
+        {
+          text: "感染了一种罕见的病毒，需要住院治疗。",
+          effect: [{ attribute: "health", value: -3 }],
+          deathChance: 0.05,
+        },
+        {
+          text: "在一次事故中严重受伤，需要长期康复。",
+          effect: [
+            { attribute: "health", value: -4 },
+            { attribute: "appearance", value: -1 },
+          ],
+          deathChance: 0.07,
+        },
+      ],
+      // 中年人危机
+      adult: [
+        {
+          text: "被诊断出心脏问题，需要进行手术。",
+          effect: [
+            { attribute: "health", value: -4 },
+            { attribute: "wealth", value: -2 },
+          ],
+          deathChance: 0.10,
+        },
+        {
+          text: "突发严重疾病，需要长期治疗。",
+          effect: [
+            { attribute: "health", value: -5 },
+            { attribute: "wealth", value: -3 },
+          ],
+          deathChance: 0.15,
+        },
+      ],
+      // 老年人危机
+      elderly: [
+        {
+          text: "突发脑卒中，住进了重症监护室。",
+          effect: [
+            { attribute: "health", value: -7 },
+            { attribute: "intelligence", value: -2 },
+          ],
+          deathChance: 0.25,
+        },
+        {
+          text: "连续几个月不明原因的身体虚弱，多方检查未果。",
+          effect: [
+            { attribute: "health", value: -5 },
+            { attribute: "appearance", value: -3 },
+          ],
+          deathChance: 0.20,
+        },
+        {
+          text: "骨折后并发症严重，康复进展缓慢。",
+          effect: [
+            { attribute: "health", value: -6 },
+            { attribute: "luck", value: -2 },
+          ],
+          deathChance: 0.20,
+        },
+      ],
+      // 超高龄危机
+      superAge: [
+        {
+          text: "出现多脏器功能衰竭的迹象，医生束手无策。",
+          effect: [{ attribute: "health", value: -10 }],
+          deathChance: 0.35,
+        },
+        {
+          text: "一场突如其来的疾病让你的健康状况急剧恶化。",
+          effect: [
+            { attribute: "health", value: -12 },
+            { attribute: "appearance", value: -5 },
+          ],
+          deathChance: 0.40,
+        },
+        {
+          text: "身体各系统开始显著衰退，医疗科技难以逆转。",
+          effect: [
+            { attribute: "health", value: -8 },
+            { attribute: "intelligence", value: -3 },
+          ],
+          deathChance: 0.30,
+        },
+      ],
+      // 接近极限危机 (160岁以上)
+      extremeAge: [
+        {
+          text: "你的基因遗传限制开始显现，细胞无法继续再生。",
+          effect: [{ attribute: "health", value: -15 }],
+          deathChance: 0.50,
+        },
+        {
+          text: "人体极限已经临近，每天醒来都是对生命的挑战。",
+          effect: [
+            { attribute: "health", value: -12 },
+            { attribute: "luck", value: -5 },
+          ],
+          deathChance: 0.55,
+        },
+        {
+          text: "即使最先进的医疗技术也无法阻止衰老的最终进程。",
+          effect: [
+            { attribute: "health", value: -15 },
+            { attribute: "appearance", value: -8 },
+          ],
+          deathChance: 0.60,
+        },
+      ],
     };
 
     // 定义专门会影响属性的事件
@@ -1343,6 +1528,10 @@ export default function LifeRestartSimulator() {
         { 
           text: "生了一场大病，身体素质有所下降。", 
           effect: [{ attribute: "health", value: -1 }] 
+        },
+        { 
+          text: "因为过度沉迷游戏，视力下降明显。", 
+          effect: [{ attribute: "health", value: -2 }] 
         },
       ],
       youth: [
@@ -1374,6 +1563,17 @@ export default function LifeRestartSimulator() {
           effect: [
             { attribute: "intelligence", value: 1 },
             { attribute: "health", value: -2 },
+          ] 
+        },
+        { 
+          text: "参加极限运动时受伤，需要几个月恢复。", 
+          effect: [{ attribute: "health", value: -3 }] 
+        },
+        { 
+          text: "因压力过大出现健康问题，不得不调整生活方式。", 
+          effect: [
+            { attribute: "health", value: -2 },
+            { attribute: "luck", value: -1 },
           ] 
         },
       ],
@@ -1417,6 +1617,17 @@ export default function LifeRestartSimulator() {
             { attribute: "intelligence", value: -1 },
           ] 
         },
+        { 
+          text: "工作压力导致高血压，医生建议改变生活方式。", 
+          effect: [{ attribute: "health", value: -3 }] 
+        },
+        { 
+          text: "久坐办公生活导致了慢性背痛问题。", 
+          effect: [
+            { attribute: "health", value: -2 },
+            { attribute: "appearance", value: -1 },
+          ] 
+        },
       ],
       elderly: [
         { 
@@ -1451,6 +1662,20 @@ export default function LifeRestartSimulator() {
         { 
           text: "关节炎问题日益严重，行动不便。", 
           effect: [{ attribute: "health", value: -2 }] 
+        },
+        { 
+          text: "听力明显下降，需要使用助听器。", 
+          effect: [
+            { attribute: "health", value: -2 },
+            { attribute: "intelligence", value: -1 },
+          ] 
+        },
+        { 
+          text: "视力问题加重，日常活动受到限制。", 
+          effect: [
+            { attribute: "health", value: -3 },
+            { attribute: "appearance", value: -1 },
+          ] 
         },
       ],
       superAge: [
@@ -1494,6 +1719,24 @@ export default function LifeRestartSimulator() {
           effect: [
             { attribute: "health", value: 5 },
             { attribute: "appearance", value: 3 },
+          ] 
+        },
+        { 
+          text: "即使有高科技医疗辅助，健康状况仍在缓慢下降。", 
+          effect: [{ attribute: "health", value: -3 }] 
+        },
+        { 
+          text: "需要更多时间休息，活动能力受限。", 
+          effect: [
+            { attribute: "health", value: -4 },
+            { attribute: "appearance", value: -2 },
+          ] 
+        },
+        { 
+          text: "记忆力开始出现明显衰退。", 
+          effect: [
+            { attribute: "intelligence", value: -3 },
+            { attribute: "health", value: -2 },
           ] 
         },
       ],
@@ -1640,6 +1883,111 @@ export default function LifeRestartSimulator() {
       return
     }
 
+    // 根据年龄增加健康危机概率
+    let crisisChance = 0;
+    if (age < 30) {
+      crisisChance = 0.02; // 年轻人2%概率
+    } else if (age < 60) {
+      crisisChance = 0.03; // 成年人3%概率
+    } else if (age < 100) {
+      crisisChance = 0.05; // 老年人5%概率
+    } else if (age < 160) {
+      crisisChance = 0.08; // 超高龄8%概率
+    } else {
+      crisisChance = 0.12; // 极高龄12%概率
+    }
+
+    // 长寿天赋减少健康危机概率
+    const hasLongevity = selectedTalents.some((t) => t.id === "longevity")
+    if (hasLongevity) {
+      crisisChance *= 0.7; // 降低30%危机概率
+    }
+
+    // 随机触发健康危机事件
+    if (Math.random() < crisisChance) {
+      let crisisEventPool: HealthCrisisEvent[] = [];
+      
+      if (age < 30) {
+        crisisEventPool = healthCrisisEvents.youth;
+      } else if (age < 60) {
+        crisisEventPool = healthCrisisEvents.adult;
+      } else if (age < 100) {
+        crisisEventPool = healthCrisisEvents.elderly;
+      } else if (age < 160) {
+        crisisEventPool = healthCrisisEvents.superAge;
+      } else {
+        crisisEventPool = healthCrisisEvents.extremeAge;
+      }
+      
+      const selectedCrisis = crisisEventPool[Math.floor(Math.random() * crisisEventPool.length)];
+      
+      // 记录事件
+      const eventText = `${age}岁: ${selectedCrisis.text}`;
+      setLifeEvents((prev) => [...prev, eventText]);
+      
+      // 判断是否死亡
+      let deathRoll = Math.random();
+      let deathChance = selectedCrisis.deathChance || 0;
+      
+      // 凤凰涅槃天赋降低死亡几率
+      const hasPhoenixNirvana = selectedTalents.some((t) => t.id === "phoenix_nirvana")
+      if (hasPhoenixNirvana) {
+        deathChance *= 0.6; // 降低40%死亡概率
+      }
+      
+      // 当健康值低于特定阈值时，死亡几率增加
+      if (attributes.health < 5) {
+        deathChance *= 1.5;
+      }
+      
+      if (deathRoll < deathChance) {
+        // 角色死亡
+        setLifeEvents((prev) => [...prev, `  → 不幸的是，你没能挺过这次危机。`]);
+        
+        // 清除当前计时器并结束生命
+        setShouldStartSimulation(false);
+        endLife(age);
+        return;
+      }
+      
+      // 如果没有死亡，应用健康影响
+      if (selectedCrisis.effect) {
+        // 应用属性变化
+        const newAttributes = { ...attributes };
+        
+        selectedCrisis.effect.forEach((effect) => {
+          // 特殊天赋检查（凤凰涅槃等）
+          let valueChange = effect.value;
+          
+          // 凤凰涅槃天赋检查
+          if (effect.value < 0 && 
+              selectedTalents.some((t) => t.id === "phoenix_nirvana") && 
+              Math.random() < 0.5) {
+            valueChange = Math.ceil(effect.value / 2);
+          }
+          
+          // 确保属性值在合理范围内
+          const newValue = Math.min(
+            attributeCaps[effect.attribute],
+            Math.max(1, newAttributes[effect.attribute] + valueChange)
+          );
+          
+          newAttributes[effect.attribute] = newValue;
+          
+          // 显示属性变化
+          const changeText = `  → ${attributeNames[effect.attribute]} ${valueChange > 0 ? "+" : ""}${valueChange}`;
+          setLifeEvents((prev) => [...prev, changeText]);
+        });
+        
+        // 更新属性
+        setAttributes(newAttributes);
+        
+        // 危机事件后添加恢复信息
+        setLifeEvents((prev) => [...prev, `  → 你成功挺过了这次危机，但身体遭受了损伤。`]);
+        return;
+      }
+    }
+
     // 有20%的概率触发属性事件
     if (Math.random() < 0.20) {
       let attributeEventPool: AttributeEvent[] = [];
@@ -1702,118 +2050,189 @@ export default function LifeRestartSimulator() {
       }
     }
 
-    // 如果没有触发属性事件，则触发普通事件
+    // 如果没有触发属性事件或健康危机，则触发普通事件
     const event = `${age}岁: ${events[Math.floor(Math.random() * events.length)]}`
     setLifeEvents((prev) => [...prev, event])
+
+    // 150岁以后增加反老还童事件机会
+    if (age >= 150 && Math.random() < 0.01) { // 1%概率
+      // 记录反老还童事件
+      const rejuvenationEvent = `${age}岁: 在一个神秘古老的仙山，你偶然发现了传说中的"长生不老泉"。`;
+      setLifeEvents((prev) => [...prev, rejuvenationEvent]);
+      
+      // 创建符合ChoiceOption类型的选项
+      const rejuvenationOptions: ChoiceOption[] = [
+        {
+          text: "饮下神泉，重新开始人生",
+          effect: [
+            { attribute: "intelligence" as AttributeType, value: 0 }, // 无实际效果，但需要placeholder
+          ],
+          isRejuvenation: true,
+          isImmortalCultivation: true
+        },
+        {
+          text: "将神泉装起来带回研究",
+          effect: [
+            { attribute: "intelligence" as AttributeType, value: 5 },
+            { attribute: "wealth" as AttributeType, value: 10 },
+          ]
+        },
+        {
+          text: "感谢上天的礼物，但选择遵循自然规律",
+          effect: [
+            { attribute: "health" as AttributeType, value: 5 },
+            { attribute: "luck" as AttributeType, value: 5 },
+          ]
+        }
+      ];
+      
+      // 给第一个选项添加特殊标记
+      (rejuvenationOptions[0] as any).isRejuvenation = true;
+      
+      // 暂停模拟并显示选择
+      setSimulationPaused(true);
+      setShouldStartSimulation(false);
+      setCurrentChoice({
+        question: "面对这传说中的神泉，你决定：",
+        options: rejuvenationOptions
+      });
+      setGameState("choice");
+      return;
+    }
   }
 
   // 结束生命模拟
-  const endLife = (finalAge: number) => {
-    // 根据属性和随机因素生成人生总结
-    const careers = [
-      "成功的企业家",
-      "公司高管",
-      "艺术家",
-      "教师",
-      "医生",
-      "工程师",
-      "作家",
-      "运动员",
-      "政治家",
-      "科学家",
-    ]
-
-    // 为超高龄添加特殊职业
-    if (finalAge >= 100) {
-      careers.push(
-        "长寿研究顾问",
-        "人类历史见证者",
-        "智慧传承者",
-        "世纪老人形象大使",
-        "生命科学特殊贡献者"
-      )
-    }
-
-    const relationships = [
-      "幸福地结婚并育有子女",
-      "经历了几段有意义的感情",
-      "专注于事业发展",
-      "拥有一个大家庭",
-      "拥有一小群终生的朋友",
-    ]
-
-    // 为超高龄添加特殊关系描述
-    if (finalAge >= 100) {
-      relationships.push(
-        "见证了多代子孙的成长",
-        "成为了整个社区的精神领袖",
-        "与许多杰出人物建立了深厚友谊",
-        "指导了数代年轻人的成长",
-        "成为了家族的传奇人物"
-      )
-    }
-
-    const achievements = [
-      ...(attributes.intelligence > 7 ? ["出版了一本书", "有了科学发现"] : []),
-      ...(attributes.appearance > 7 ? ["成为了当地名人", "用你的魅力激励了许多人"] : []),
-      ...(attributes.wealth > 7 ? ["建立了成功的商业帝国", "慷慨地捐赠给慈善机构"] : []),
-      ...(attributes.health > 7 ? ["保持了良好的健康状态直到晚年", "用你的活力激励了他人"] : []),
-      ...(attributes.luck > 7 ? ["拥有了非常幸运的一生", "从几次险境中幸存"] : []),
-    ]
-
-    // 为超高龄添加特殊成就
-    if (finalAge >= 100) {
-      achievements.push(
-        "达到了罕见的百岁高龄",
-        "你的长寿秘诀被广泛研究",
-        "成为了长寿研究的重要案例"
-      )
+  const endLife = (finalAge: number, causeOverride?: string) => {
+    // 确定死亡原因
+    let deathCause = "";
+    
+    if (causeOverride) {
+      // 如果有外部传入的死亡原因，优先使用
+      deathCause = causeOverride;
+    } else if (isImmortalCultivation && finalAge >= 1000) {
+      // 修仙成功，飞升结局
+      deathCause = "功德圆满，羽化成仙，飞升上界";
+    } else {
+      // 根据年龄和属性确定自然死亡原因
+      if (finalAge >= 200) {
+        deathCause = "寿终正寝，达到了人类的极限年龄";
+      } else if (finalAge >= 150) {
+        const causes = [
+          "走完了漫长而传奇的一生",
+          "在睡梦中平静地离世",
+          "生命之火缓缓熄灭，创造了医学奇迹",
+          "为人类的长寿研究贡献了最后的礼物"
+        ];
+        deathCause = causes[Math.floor(Math.random() * causes.length)];
+      } else if (finalAge >= 100) {
+        const causes = [
+          "作为百岁老人，安详地闭上了眼睛",
+          "在家人的陪伴下安详离世",
+          "完成了人生最后的心愿后离开人世",
+          "留下了丰富的人生经验和回忆"
+        ];
+        deathCause = causes[Math.floor(Math.random() * causes.length)];
+      } else if (finalAge >= 70) {
+        const causes = [
+          "因自然衰老平静地离世",
+          "在睡梦中离世",
+          "心脏功能逐渐衰竭，离开人世",
+          "多器官功能衰竭，终结了一生"
+        ];
+        deathCause = causes[Math.floor(Math.random() * causes.length)];
+      } else if (finalAge >= 40) {
+        if (attributes.health < 5) {
+          const causes = [
+            "长期健康问题最终导致器官衰竭",
+            "不幸罹患重病，医治无效",
+            "因慢性疾病恶化离世",
+            "意外并发症导致医疗措施无效"
+          ];
+          deathCause = causes[Math.floor(Math.random() * causes.length)];
+        } else {
+          const causes = [
+            "突发疾病，治疗无效",
+            "在一场意外事故中不幸离世",
+            "遭遇罕见疾病，医学尚无良方",
+            "工作压力过大，突发心脏问题"
+          ];
+          deathCause = causes[Math.floor(Math.random() * causes.length)];
+        }
+      } else {
+        // 年轻人死亡
+        const causes = [
+          "在一场意外事故中，生命过早结束",
+          "罹患罕见疾病，医学无力挽救",
+          "突发健康危机，抢救无效",
+          "一场不幸的事件带走了年轻的生命"
+        ];
+        deathCause = causes[Math.floor(Math.random() * causes.length)];
+      }
+      
+      // 根据属性调整死亡原因
+      if (attributes.wealth >= 15 && finalAge < 100) {
+        const wealthyCauses = [
+          "在豪华别墅中安详离世，留下巨额财产",
+          "最后一次慈善捐赠后心满意足地离开人世",
+          "在私人医院接受最先进的治疗后仍未能挽回生命"
+        ];
+        if (Math.random() < 0.5) {
+          deathCause = wealthyCauses[Math.floor(Math.random() * wealthyCauses.length)];
+        }
+      }
+      
+      if (attributes.intelligence >= 15 && finalAge < 100) {
+        const smartCauses = [
+          "在一项重大研究即将突破时不幸离世",
+          "为科学事业耗尽心力，留下宝贵成果",
+          "最后的理论著作尚未完成就离开人世"
+        ];
+        if (Math.random() < 0.5) {
+          deathCause = smartCauses[Math.floor(Math.random() * smartCauses.length)];
+        }
+      }
     }
     
-    if (finalAge >= 120) {
-      achievements.push(
-        "打破了地区长寿纪录",
-        "接受了国家级荣誉表彰",
-        "你的DNA被科学家视为珍贵样本"
-      )
+    // 添加死亡通知
+    setLifeEvents((prev) => [...prev, `${finalAge}岁: 你${deathCause}，结束了此生的旅程。`]);
+    
+    // 计算得分和总结
+    const totalScore = Object.values(attributes).reduce((sum, value) => sum + value, 0);
+    
+    // 创建得分级别评价
+    let scoreLevel = "";
+    if (isImmortalCultivation && finalAge >= 1000) {
+      scoreLevel = "羽化登仙，超脱凡尘";
+    } else if (totalScore >= 400) {
+      scoreLevel = "神话般的传奇一生";
+    } else if (totalScore >= 300) {
+      scoreLevel = "辉煌卓越的一生";
+    } else if (totalScore >= 200) {
+      scoreLevel = "成功而充实的一生";
+    } else if (totalScore >= 150) {
+      scoreLevel = "平凡而满足的一生";
+    } else if (totalScore >= 100) {
+      scoreLevel = "普通的一生";
+    } else if (totalScore >= 50) {
+      scoreLevel = "遗憾的一生";
+    } else {
+      scoreLevel = "悲惨的一生";
     }
     
-    if (finalAge >= 150) {
-      achievements.push(
-        "被载入人类长寿史册",
-        "参与了改变人类寿命认知的研究",
-        "你的生平被写入教科书"
-      )
-    }
+    // 添加生命总结
+    setLifeEvents((prev) => [...prev, " "]);
+    setLifeEvents((prev) => [...prev, "【生命总结】"]);
+    setLifeEvents((prev) => [...prev, `寿命: ${finalAge}岁`]);
+    setLifeEvents((prev) => [...prev, `智力: ${attributes.intelligence}`]);
+    setLifeEvents((prev) => [...prev, `外貌: ${attributes.appearance}`]);
+    setLifeEvents((prev) => [...prev, `财富: ${attributes.wealth}`]);
+    setLifeEvents((prev) => [...prev, `健康: ${attributes.health}`]);
+    setLifeEvents((prev) => [...prev, `幸运: ${attributes.luck}`]);
+    setLifeEvents((prev) => [...prev, `总分: ${totalScore}`]);
+    setLifeEvents((prev) => [...prev, `评价: ${scoreLevel}`]);
     
-    if (finalAge >= 180) {
-      achievements.push(
-        "成为人类历史上的不朽传奇",
-        "你的经历跨越了近两个世纪",
-        "为人类寿命极限提供了新的可能"
-      )
-    }
-
-    // 检查是否有天命之子天赋，添加特殊成就
-    const hasDestinyChild = selectedTalents.some((t) => t.id === "destiny_child")
-    if (hasDestinyChild) {
-      achievements.push("实现了常人难以企及的人生成就", "你的传奇故事将被后人传颂")
-    }
-
-    // 筛选成就为2-6项，超高龄可以有更多成就
-    const maxAchievements = finalAge >= 150 ? 6 : (finalAge >= 100 ? 5 : 4);
-    const selectedAchievements = achievements
-      .sort(() => 0.5 - Math.random())
-      .slice(0, Math.max(2, Math.min(maxAchievements, achievements.length)))
-
-    setSummary({
-      career: careers[Math.floor(Math.random() * careers.length)],
-      relationships: relationships[Math.floor(Math.random() * relationships.length)],
-      achievements: selectedAchievements,
-      finalAge,
-    })
-
-    setGameState("summary")
+    // 切换到总结状态
+    setGameState("summary");
   }
 
   // 重新开始
@@ -1834,6 +2253,153 @@ export default function LifeRestartSimulator() {
     setActiveTab("attributes")
     setShouldStartSimulation(false)
     setSimulationPaused(false)
+  }
+
+  // 做出选择
+  const makeChoice = (effects: { attribute: AttributeType; value: number }[]) => {
+    // 获取选中的选项
+    const selectedOption = currentChoice?.options.find(opt => 
+      JSON.stringify(opt.effect) === JSON.stringify(effects)
+    );
+    
+    // 检查是否为修仙选项
+    if (selectedOption && selectedOption.isImmortalCultivation) {
+      // 记录选择
+      const choiceEvent = `${currentAge}岁: 你选择了踏上修仙之路，追求超脱凡尘的境界。`;
+      setLifeEvents((prev) => [...prev, choiceEvent]);
+      
+      // 特殊效果描述
+      setLifeEvents((prev) => [...prev, `  → 你开始修炼不为人知的古老功法...`]);
+      setLifeEvents((prev) => [...prev, `  → 你的体内渐渐有了一丝灵气流转！`]);
+      setLifeEvents((prev) => [...prev, `  → 突破生死关，踏上长生路！`]);
+      
+      // 设置修仙状态
+      setIsImmortalCultivation(true);
+      
+      // 设置第一次渡劫的年龄
+      setNextTribulationAge(currentAge + 20); // 20年后第一次渡劫
+      
+      // 增加寿命上限
+      setMaxAgeLimit(250);
+      
+      // 应用效果
+      const newAttributes = { ...attributes };
+      
+      effects.forEach((effect) => {
+        const newValue = Math.min(
+          attributeCaps[effect.attribute],
+          Math.max(1, newAttributes[effect.attribute] + effect.value)
+        );
+        newAttributes[effect.attribute] = newValue;
+        
+        // 显示属性变化
+        const changeText = `  → ${attributeNames[effect.attribute]} ${effect.value > 0 ? "+" : ""}${effect.value}`;
+        setLifeEvents((prev) => [...prev, changeText]);
+      });
+      
+      setAttributes(newAttributes);
+      
+      // 恢复模拟
+      setCurrentChoice(null);
+      setGameState("events");
+      
+      // 确保所有状态更新后重新启动模拟
+      setTimeout(() => {
+        setSimulationPaused(false);
+        setShouldStartSimulation(true);
+      }, 100);
+      
+      return;
+    }
+    
+    // 检查是否为反老还童选项
+    if (selectedOption && selectedOption.isRejuvenation) {
+      // 记录选择
+      const choiceEvent = `${currentAge}岁: 你选择了饮下神泉，开始了新的人生旅程。`;
+      setLifeEvents((prev) => [...prev, choiceEvent]);
+      
+      // 特殊效果描述
+      setLifeEvents((prev) => [...prev, `  → 你的身体开始逆转衰老过程...`]);
+      setLifeEvents((prev) => [...prev, `  → 你再次变回了婴儿，但保留了前世的所有能力和记忆！`]);
+      
+      // 设置状态为反老还童
+      setTimeout(() => {
+        // 重置年龄但保留属性
+        setCurrentAge(0);
+        // 添加分隔线
+        setLifeEvents((prev) => [...prev, "【新的人生开始】"]);
+        
+        // 恢复模拟
+        setCurrentChoice(null);
+        setGameState("events");
+        setSimulationPaused(false);
+        setShouldStartSimulation(true);
+      }, 100);
+      
+      return;
+    }
+
+    // 应用选择的效果
+    const newAttributes = { ...attributes }
+
+    effects.forEach((effect) => {
+      // 检查是否有凤凰涅槃天赋（低谷反弹）
+      const hasPhoenixNirvana = selectedTalents.some((t) => t.id === "phoenix_nirvana")
+      let valueChange = effect.value
+
+      // 如果是负面效果且有凤凰涅槃天赋
+      if (effect.value < 0 && hasPhoenixNirvana) {
+        // 50%几率将负面效果减半
+        if (Math.random() < 0.5) {
+          valueChange = Math.ceil(effect.value / 2)
+        }
+      }
+
+      // 如果是财富增加且有黄金手指天赋
+      if (effect.attribute === "wealth" && effect.value > 0 && selectedTalents.some((t) => t.id === "golden_finger")) {
+        valueChange *= 2
+      }
+
+      // 应用效果，但不超过上限
+      const newValue = Math.min(
+        attributeCaps[effect.attribute],
+        Math.max(1, newAttributes[effect.attribute] + valueChange),
+      )
+      newAttributes[effect.attribute] = newValue
+    })
+
+    setAttributes(newAttributes)
+
+    // 记录选择
+    const choiceEvent = `${currentAge}岁: 你选择了 "${
+      currentChoice?.options.find((opt) => JSON.stringify(opt.effect) === JSON.stringify(effects))?.text
+    }"`
+
+    setLifeEvents((prev) => [...prev, choiceEvent])
+
+    // 显示属性变化
+    effects.forEach((effect) => {
+      // 检查是否有特殊天赋修改效果
+      let valueChange = effect.value
+
+      if (effect.attribute === "wealth" && effect.value > 0 && selectedTalents.some((t) => t.id === "golden_finger")) {
+        valueChange *= 2
+      }
+
+      const changeText = `${attributeNames[effect.attribute]} ${valueChange > 0 ? "+" : ""}${valueChange}`
+      setLifeEvents((prev) => [...prev, `  → ${changeText}`])
+    })
+
+    // 恢复模拟
+    setCurrentChoice(null)
+    setGameState("events")
+    
+    // 确保所有状态更新后重新启动模拟
+    setTimeout(() => {
+      setSimulationPaused(false)
+      setShouldStartSimulation(true)
+      console.log("选择后重新启动模拟"); // 调试日志
+    }, 100) // 增加一点延迟以确保状态更新完成
   }
 
   // 如果不是客户端，返回一个简单的加载界面，防止服务器渲染与客户端不匹配

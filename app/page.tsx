@@ -117,10 +117,10 @@ export default function LifeRestartSimulator() {
     {
       id: "genius",
       name: "天生聪慧",
-      description: "智力上限+3，初始智力+2",
+      description: "智力上限+5，初始智力+3",
       effect: {
         type: "attribute_bonus",
-        details: { intelligence: { cap: 3, initial: 2 } },
+        details: { intelligence: { cap: 5, initial: 3 } },
       },
       rarity: "稀有",
       color: "bg-blue-500",
@@ -128,10 +128,10 @@ export default function LifeRestartSimulator() {
     {
       id: "beauty",
       name: "天生丽质",
-      description: "外貌上限+3，初始外貌+2",
+      description: "外貌上限+5，初始外貌+3",
       effect: {
         type: "attribute_bonus",
-        details: { appearance: { cap: 3, initial: 2 } },
+        details: { appearance: { cap: 5, initial: 3 } },
       },
       rarity: "稀有",
       color: "bg-pink-500",
@@ -139,10 +139,10 @@ export default function LifeRestartSimulator() {
     {
       id: "wealthy_family",
       name: "富贵家庭",
-      description: "财富上限+3，初始财富+2",
+      description: "财富上限+5，初始财富+3",
       effect: {
         type: "attribute_bonus",
-        details: { wealth: { cap: 3, initial: 2 } },
+        details: { wealth: { cap: 5, initial: 3 } },
       },
       rarity: "稀有",
       color: "bg-yellow-500",
@@ -150,10 +150,10 @@ export default function LifeRestartSimulator() {
     {
       id: "strong_physique",
       name: "强健体魄",
-      description: "健康上限+3，初始健康+2",
+      description: "健康上限+5，初始健康+3",
       effect: {
         type: "attribute_bonus",
-        details: { health: { cap: 3, initial: 2 } },
+        details: { health: { cap: 5, initial: 3 } },
       },
       rarity: "稀有",
       color: "bg-green-500",
@@ -161,10 +161,10 @@ export default function LifeRestartSimulator() {
     {
       id: "fortune_star",
       name: "福星高照",
-      description: "幸运上限+3，初始幸运+2",
+      description: "幸运上限+5，初始幸运+3",
       effect: {
         type: "attribute_bonus",
-        details: { luck: { cap: 3, initial: 2 } },
+        details: { luck: { cap: 5, initial: 3 } },
       },
       rarity: "稀有",
       color: "bg-purple-500",
@@ -238,18 +238,18 @@ export default function LifeRestartSimulator() {
     {
       id: "balanced_development",
       name: "均衡发展",
-      description: "所有属性上限+1",
+      description: "所有属性上限+10，所有属性初始值+1",
       effect: {
         type: "attribute_bonus",
         details: {
-          intelligence: { cap: 1 },
-          appearance: { cap: 1 },
-          wealth: { cap: 1 },
-          health: { cap: 1 },
-          luck: { cap: 1 },
+          intelligence: { cap: 10, initial: 1 },
+          appearance: { cap: 10, initial: 1 },
+          wealth: { cap: 10, initial: 1 },
+          health: { cap: 10, initial: 1 },
+          luck: { cap: 10, initial: 1 },
         },
       },
-      rarity: "普通",
+      rarity: "史诗",
       color: "bg-slate-500",
     },
   ]
@@ -272,7 +272,7 @@ export default function LifeRestartSimulator() {
 
   // 添加事件容器的ref
   const eventsContainerRef = useRef<HTMLDivElement>(null)
-  
+
   // 更新属性值
   const updateAttribute = (attr: AttributeType, value: number[]) => {
     const newValue = value[0]
@@ -362,21 +362,21 @@ export default function LifeRestartSimulator() {
     
     // 初始化
     if (isInitialStart) {
-      setCurrentAge(0)
-      setLifeEvents([])
+    setCurrentAge(0)
+    setLifeEvents([])
       setIsImmortalCultivation(false) // 确保初始化时修仙状态为false
       setTribulationsCount(0)
       setNextTribulationAge(0)
       setMaxAgeLimit(200)
 
-      // 记录选择的天赋
-      if (selectedTalents.length > 0) {
-        setLifeEvents(["【天赋】"])
-        selectedTalents.forEach((talent) => {
-          setLifeEvents((prev) => [...prev, `  • ${talent.name}: ${talent.description}`])
-        })
-      }
-      
+    // 记录选择的天赋
+    if (selectedTalents.length > 0) {
+      setLifeEvents(["【天赋】"])
+      selectedTalents.forEach((talent) => {
+        setLifeEvents((prev) => [...prev, `  • ${talent.name}: ${talent.description}`])
+      })
+    }
+
       // 重置初始启动标记
       setIsInitialStart(false)
     }
@@ -601,7 +601,7 @@ export default function LifeRestartSimulator() {
     // 只在合适的年龄提供特殊选择
     let question = ""
     let options: ChoiceOption[] = []
-    
+
     if (age === 22) {
       question = "年轻的你面临人生的重要岔路"
       options = [
@@ -1053,8 +1053,8 @@ export default function LifeRestartSimulator() {
     console.log(`提供的选项:`, options);
 
     if (options.length > 0) {
-      setCurrentChoice({ question, options })
-      setGameState("choice")
+    setCurrentChoice({ question, options })
+    setGameState("choice")
     } else {
       // 如果没有找到对应年龄的选项，使用默认选项
       const defaultOptions = getHighAgeOptions(age) // 会返回默认选项
@@ -1341,8 +1341,8 @@ export default function LifeRestartSimulator() {
           const newAttributes = { ...attributes };
           
           crisisEvent.effect.forEach((effect) => {
-            const newValue = Math.min(
-              attributeCaps[effect.attribute],
+      const newValue = Math.min(
+        attributeCaps[effect.attribute],
               Math.max(1, newAttributes[effect.attribute] + effect.value)
             );
             newAttributes[effect.attribute] = newValue;
@@ -1380,8 +1380,8 @@ export default function LifeRestartSimulator() {
               Math.max(1, newAttributes[effect.attribute] + effect.value)
             );
             newAttributes[effect.attribute] = newValue;
-            
-            // 显示属性变化
+
+    // 显示属性变化
             const changeText = `  → ${attributeNames[effect.attribute]} ${effect.value > 0 ? "+" : ""}${effect.value}`;
             setLifeEvents((prev) => [...prev, changeText]);
           });
@@ -2315,7 +2315,7 @@ export default function LifeRestartSimulator() {
       finalAge,
       deathCause
     });
-    
+
     // 切换到总结状态
     setGameState("summary");
   }
@@ -2532,36 +2532,36 @@ export default function LifeRestartSimulator() {
               </TabsList>
 
               <TabsContent value="attributes" className="space-y-6">
-                <div className="text-center mb-6">
-                  <h3 className="text-lg font-medium">属性点分配</h3>
-                  <p className="text-sm text-muted-foreground">剩余点数: {pointsRemaining}</p>
-                </div>
+                  <div className="text-center mb-6">
+                    <h3 className="text-lg font-medium">属性点分配</h3>
+                    <p className="text-sm text-muted-foreground">剩余点数: {pointsRemaining}</p>
+                  </div>
 
-                {Object.entries(attributes).map(([key, value]) => {
+                  {Object.entries(attributes).map(([key, value]) => {
                   const attr = key as AttributeType
-                  const Icon = attributeIcons[attr]
+                    const Icon = attributeIcons[attr]
 
-                  return (
-                    <div key={key} className="space-y-2">
-                      <div className="flex justify-between">
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-5 w-5" />
-                          <h3 className="font-medium">{attributeNames[attr]}</h3>
+                    return (
+                      <div key={key} className="space-y-2">
+                        <div className="flex justify-between">
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-5 w-5" />
+                            <h3 className="font-medium">{attributeNames[attr]}</h3>
+                          </div>
+                          <span>
+                            {value}/{attributeCaps[attr]}
+                          </span>
                         </div>
-                        <span>
-                          {value}/{attributeCaps[attr]}
-                        </span>
+                        <Slider
+                          value={[value]}
+                          min={1}
+                          max={attributeCaps[attr]}
+                          step={1}
+                          onValueChange={(val) => updateAttribute(attr, val)}
+                        />
                       </div>
-                      <Slider
-                        value={[value]}
-                        min={1}
-                        max={attributeCaps[attr]}
-                        step={1}
-                        onValueChange={(val) => updateAttribute(attr, val)}
-                      />
-                    </div>
-                  )
-                })}
+                    )
+                  })}
               </TabsContent>
 
               <TabsContent value="talents" className="space-y-4">

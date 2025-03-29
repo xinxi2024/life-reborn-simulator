@@ -18,8 +18,8 @@ type Attributes = Record<AttributeType, number>
 // 定义天赋效果详情类型
 type AttributeBonus = {
   [key in AttributeType]?: {
-    cap?: number;
-    initial?: number;
+    cap?: number; // 上限
+    initial?: number; // 初始值
   }
 }
 
@@ -36,6 +36,7 @@ type LifespanDetails = {
 type SpecialDetails = {
   crisis_bonus?: boolean;
   special_events?: boolean;
+  immortal_cultivation_bonus?: boolean; // 修仙能力加成
 }
 
 type TalentEffectDetails = AttributeBonus | EventChanceDetails | LifespanDetails | SpecialDetails;
@@ -111,16 +112,24 @@ export default function LifeRestartSimulator() {
   const [tribulationsCount, setTribulationsCount] = useState(0)
   const [nextTribulationAge, setNextTribulationAge] = useState(0)
   const [maxAgeLimit, setMaxAgeLimit] = useState(200) // 默认寿命上限
+  const [lastRandomEventAge, setLastRandomEventAge] = useState(0) // 跟踪上次随机事件的年龄
+  const [lastSkippedChoice, setLastSkippedChoice] = useState<{
+    age: number;
+    choice: {
+      question: string;
+      options: ChoiceOption[];
+    } | null;
+  } | null>(null) // 存储用户跳过的最后一个选择
 
   // 天赋列表
   const talents: Talent[] = [
     {
       id: "genius",
       name: "天生聪慧",
-      description: "智力上限+5，初始智力+3",
+      description: "智力上限+20，初始智力+10",
       effect: {
         type: "attribute_bonus",
-        details: { intelligence: { cap: 5, initial: 3 } },
+        details: { intelligence: { cap: 20, initial: 10 } },
       },
       rarity: "稀有",
       color: "bg-blue-500",
@@ -128,10 +137,10 @@ export default function LifeRestartSimulator() {
     {
       id: "beauty",
       name: "天生丽质",
-      description: "外貌上限+5，初始外貌+3",
+      description: "外貌上限+20，初始外貌+10",
       effect: {
         type: "attribute_bonus",
-        details: { appearance: { cap: 5, initial: 3 } },
+        details: { appearance: { cap: 20, initial: 10 } },
       },
       rarity: "稀有",
       color: "bg-pink-500",
@@ -139,10 +148,10 @@ export default function LifeRestartSimulator() {
     {
       id: "wealthy_family",
       name: "富贵家庭",
-      description: "财富上限+5，初始财富+3",
+      description: "财富上限+20，初始财富+10",
       effect: {
         type: "attribute_bonus",
-        details: { wealth: { cap: 5, initial: 3 } },
+        details: { wealth: { cap: 20, initial: 10 } },
       },
       rarity: "稀有",
       color: "bg-yellow-500",
@@ -150,10 +159,10 @@ export default function LifeRestartSimulator() {
     {
       id: "strong_physique",
       name: "强健体魄",
-      description: "健康上限+5，初始健康+3",
+      description: "健康上限+20，初始健康+10",
       effect: {
         type: "attribute_bonus",
-        details: { health: { cap: 5, initial: 3 } },
+        details: { health: { cap: 20, initial: 10 } },
       },
       rarity: "稀有",
       color: "bg-green-500",
@@ -161,10 +170,10 @@ export default function LifeRestartSimulator() {
     {
       id: "fortune_star",
       name: "福星高照",
-      description: "幸运上限+5，初始幸运+3",
+      description: "幸运上限+20，初始幸运+10",
       effect: {
         type: "attribute_bonus",
-        details: { luck: { cap: 5, initial: 3 } },
+        details: { luck: { cap: 20, initial: 10 } },
       },
       rarity: "稀有",
       color: "bg-purple-500",
@@ -238,19 +247,45 @@ export default function LifeRestartSimulator() {
     {
       id: "balanced_development",
       name: "均衡发展",
-      description: "所有属性上限+10，所有属性初始值+1",
+      description: "所有属性上限+10，所有属性初始值+3",
       effect: {
         type: "attribute_bonus",
         details: {
-          intelligence: { cap: 10, initial: 1 },
-          appearance: { cap: 10, initial: 1 },
-          wealth: { cap: 10, initial: 1 },
-          health: { cap: 10, initial: 1 },
-          luck: { cap: 10, initial: 1 },
+          intelligence: { cap: 10, initial: 3 },
+          appearance: { cap: 10, initial: 3 },
+          wealth: { cap: 10, initial: 3 },
+          health: { cap: 10, initial: 3 },
+          luck: { cap: 10, initial: 3 },
         },
       },
       rarity: "史诗",
       color: "bg-slate-500",
+    },
+    {
+      id: "immortal_aptitude",
+      name: "仙道资质",
+      description: "天生仙骨灵根，渡劫成功率提高25%，修仙属性增长翻倍，正面事件效果提升60%，解锁专属仙道机缘",
+      effect: {
+        type: "special",
+        details: { immortal_cultivation_bonus: true },
+      },
+      rarity: "传说",
+      color: "bg-violet-500",
+    },
+    {
+      id: "ancient_wisdom",
+      name: "远古智慧",
+      description: "获得上古修仙者的完整传承，智力和健康初上限+20，修仙起点极高，突破瓶颈轻而易举，解锁专属秘法事件",
+      effect: {
+        type: "attribute_bonus",
+        details: {
+          intelligence: { cap: 20, initial: 0 },
+          health: { cap: 20, initial: 0 },
+          luck: { cap: 10, initial: 0 },
+        },
+      },
+      rarity: "史诗",
+      color: "bg-teal-500",
     },
   ]
 
@@ -398,8 +433,24 @@ export default function LifeRestartSimulator() {
           setSimulationPaused(true)
           setShouldStartSimulation(false)
           
-          // 渡劫成功率计算：初始40%，每次渡劫降低2%
-          const successRate = Math.max(0, 0.4 - (tribulationsCount * 0.02))
+          // 渡劫成功率计算：随着年龄增加，基础成功率提高
+          // 初始50%，每次渡劫降低2%，但高属性可以提高成功率
+          const baseSuccessRate = 0.5;
+          const tribulationPenalty = tribulationsCount * 0.02;
+          
+          // 检查是否有仙道资质天赋
+          const hasImmortalAptitude = selectedTalents.some((t) => t.id === "immortal_aptitude");
+          const immortalBonus = hasImmortalAptitude ? 0.25 : 0; // 仙道资质天赋提供25%的渡劫成功率加成（从15%提高）
+          
+          // 检查是否有远古智慧天赋
+          const hasAncientWisdom = selectedTalents.some((t) => t.id === "ancient_wisdom");
+          const wisdomBonus = hasAncientWisdom ? 0.20 : 0; // 远古智慧天赋提供20%的渡劫成功率加成
+          
+          const attrBonus = (attributes.intelligence * 0.003 + attributes.health * 0.002 + attributes.luck * 0.001);
+          const successRate = Math.max(0.05, Math.min(0.95, baseSuccessRate - tribulationPenalty + attrBonus + immortalBonus + wisdomBonus));
+          
+          console.log(`渡劫计算 - 基础成功率: ${baseSuccessRate}, 渡劫次数惩罚: ${tribulationPenalty}, 属性加成: ${attrBonus}, 仙道资质加成: ${immortalBonus}, 远古智慧加成: ${wisdomBonus}, 最终成功率: ${successRate}`);
+          
           const isSuccess = Math.random() < successRate
           
           if (isSuccess) {
@@ -414,14 +465,41 @@ export default function LifeRestartSimulator() {
             // 更新下一次渡劫年龄，设为固定每50年一次
             setTribulationsCount((prev) => prev + 1)
             setNextTribulationAge((prev) => prev + 50) // 每50年渡劫一次
-            setMaxAgeLimit((prev) => prev + 50)
             
-            // 增加属性
+            // 增加寿命上限，确保能达到1000岁
+            const newMaxAgeLimit = Math.min(1000, maxAgeLimit + 50);
+            setMaxAgeLimit(newMaxAgeLimit);
+            
+            console.log(`渡劫成功 - 新的寿命上限: ${newMaxAgeLimit}, 下次渡劫年龄: ${nextTribulationAge + 50}, 渡劫次数: ${tribulationsCount + 1}`);
+            
+            // 属性加成，如果有仙道资质天赋，获得更多属性提升
+            const intelligenceBonus = hasImmortalAptitude ? 15 : (hasAncientWisdom ? 12 : 5);
+            const healthBonus = hasImmortalAptitude ? 15 : (hasAncientWisdom ? 12 : 5);
+            const luckBonus = hasImmortalAptitude ? 10 : (hasAncientWisdom ? 8 : 3);
+            const appearanceBonus = hasImmortalAptitude ? 8 : (hasAncientWisdom ? 6 : 0);
+            const wealthBonus = hasImmortalAptitude ? 8 : (hasAncientWisdom ? 6 : 0);
+            
+            if (hasImmortalAptitude) {
+              setLifeEvents((prev) => [
+                ...prev,
+                `  → 【仙道资质】天赋发挥超凡效果，你的修为呈几何级数增长！`
+              ]);
+            }
+            
+            if (hasAncientWisdom && !hasImmortalAptitude) {
+              setLifeEvents((prev) => [
+                ...prev,
+                `  → 【远古智慧】天赋启迪，你深刻理解了天劫之道，获益匪浅！`
+              ]);
+            }
+            
             setAttributes((prev) => ({
               ...prev,
-              intelligence: Math.min(100, prev.intelligence + 5),
-              health: Math.min(100, prev.health + 5),
-              luck: Math.min(100, prev.luck + 3),
+              intelligence: Math.min(100, prev.intelligence + intelligenceBonus),
+              health: Math.min(100, prev.health + healthBonus),
+              luck: Math.min(100, prev.luck + luckBonus),
+              appearance: Math.min(100, prev.appearance + appearanceBonus),
+              wealth: Math.min(100, prev.wealth + wealthBonus)
             }))
             
             // 恢复模拟
@@ -485,7 +563,31 @@ export default function LifeRestartSimulator() {
         } 
         else if (newAge === 12 || newAge === 18 || newAge === 25 || newAge === 35 || newAge === 50 || 
                 newAge === 65 || newAge === 80 || newAge === 95 ||
-                (newAge >= 110 && newAge % 15 === 0)) { // 110岁后每15年一次选择
+                (newAge >= 110 && newAge % 15 === 0 && newAge < 200) || 
+                (isImmortalCultivation && (newAge === 210 || (newAge >= 300 && newAge % 100 === 0 && newAge < 900) || newAge === 990))) {
+          // 110岁后每15年一次选择，修仙后在210岁、每100岁和990岁增加选择点
+          presentChoice(newAge)
+          setSimulationPaused(true)
+          setShouldStartSimulation(false)
+          
+          // 清除当前计时器
+          if (timerID) {
+            clearInterval(timerID)
+            timerID = null
+          }
+          
+          return newAge
+        }
+        // 添加随机选择事件
+        else if (newAge >= 10 && newAge < 200 && !isImmortalCultivation && 
+                 Math.random() < 0.03 && // 降低到3%的几率
+                 (newAge % 5 === 0 || newAge % 5 === 1) && // 只在能被5整除或余1的年龄触发，进一步限制频率
+                 lastRandomEventAge + 5 <= newAge) { // 确保与上次随机事件至少间隔5岁
+          console.log(`触发随机选择事件，年龄: ${newAge}岁`);
+          
+          // 记录这次随机事件的年龄
+          setLastRandomEventAge(newAge);
+          
           presentChoice(newAge)
           setSimulationPaused(true)
           setShouldStartSimulation(false)
@@ -595,6 +697,576 @@ export default function LifeRestartSimulator() {
       container.scrollTop = container.scrollHeight
     }
   }, [lifeEvents, gameState])
+
+  // 获取随机事件选项
+  const getRandomChoiceEvent = (age: number): { question: string, options: ChoiceOption[] } => {
+    // 随机选择一个事件类型，但根据年龄排除不合适的类型
+    const eventTypes = [
+      "career", "health", "relationship", "education", "investment", 
+      "adventure", "hobby", "family", "social", "spiritual"
+    ].filter(type => {
+      // 排除不适合特定年龄段的事件类型
+      if (age < 15 && (type === "career" || type === "investment")) return false;
+      if (age < 18 && type === "career") return false;
+      return true;
+    });
+    
+    const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+    
+    // 根据事件类型和年龄返回对应的问题和选项
+    switch(eventType) {
+      case "career":
+        return {
+          question: age < 25 ? "关于未来职业的思考：" : "职业生涯中的机会：",
+          options: [
+            {
+              text: age < 25 ? "尝试实习，积累职场经验" : "接受一份待遇更高但压力更大的工作",
+              effect: [
+                { attribute: "wealth", value: 3 },
+                { attribute: "health", value: -2 }
+              ]
+            },
+            {
+              text: age < 25 ? "专注学业，提升专业技能" : "坚持目前的工作，寻求内部晋升",
+              effect: [
+                { attribute: "intelligence", value: 2 },
+                { attribute: "wealth", value: 1 }
+              ]
+            },
+            {
+              text: age < 25 ? "参加一些兴趣班，拓展技能面" : "利用业余时间学习新技能",
+              effect: [
+                { attribute: "intelligence", value: 3 },
+                { attribute: "health", value: -1 }
+              ]
+            }
+          ]
+        };
+        
+      case "health":
+        if (age < 15) {
+          return {
+            question: "放学后的活动选择：",
+            options: [
+              {
+                text: "参加学校的体育社团",
+                effect: [
+                  { attribute: "health", value: 3 },
+                  { attribute: "appearance", value: 1 }
+                ]
+              },
+              {
+                text: "学习健康的饮食习惯",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "intelligence", value: 1 }
+                ]
+              },
+              {
+                text: "每天花时间户外活动",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "luck", value: 1 }
+                ]
+              }
+            ]
+          };
+        } else {
+          return {
+            question: "关于健康生活的决定：",
+            options: [
+              {
+                text: "开始一项新的运动习惯",
+                effect: [
+                  { attribute: "health", value: 3 },
+                  { attribute: "appearance", value: 2 }
+                ]
+              },
+              {
+                text: "改善饮食结构，尝试健康饮食",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "wealth", value: -1 }
+                ]
+              },
+              {
+                text: "定期体检，关注身体变化",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "intelligence", value: 1 }
+                ]
+              }
+            ]
+          };
+        }
+        
+      case "relationship":
+        if (age < 18) {
+          return {
+            question: "关于朋友关系的选择：",
+            options: [
+              {
+                text: "与同学建立更深厚的友谊",
+                effect: [
+                  { attribute: "luck", value: 2 },
+                  { attribute: "intelligence", value: 1 }
+                ]
+              },
+              {
+                text: "参加社交活动，结交更多朋友",
+                effect: [
+                  { attribute: "appearance", value: 2 },
+                  { attribute: "luck", value: 1 }
+                ]
+              },
+              {
+                text: "学习如何处理人际冲突",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "luck", value: 1 }
+                ]
+              }
+            ]
+          };
+        } else {
+          return {
+            question: "感情生活中的选择：",
+            options: [
+              {
+                text: "投入更多时间在感情关系上",
+                effect: [
+                  { attribute: "appearance", value: 2 },
+                  { attribute: "luck", value: 2 },
+                  { attribute: "wealth", value: -1 }
+                ]
+              },
+              {
+                text: "保持独立，专注于个人发展",
+                effect: [
+                  { attribute: "intelligence", value: 3 },
+                  { attribute: "wealth", value: 2 }
+                ]
+              },
+              {
+                text: "寻找平衡，兼顾感情与事业",
+                effect: [
+                  { attribute: "luck", value: 1 },
+                  { attribute: "intelligence", value: 1 },
+                  { attribute: "appearance", value: 1 }
+                ]
+              }
+            ]
+          };
+        }
+        
+      case "education":
+        if (age < 18) {
+          return {
+            question: "学习方面的决定：",
+            options: [
+              {
+                text: "尝试一种新的学习方法",
+                effect: [
+                  { attribute: "intelligence", value: 3 },
+                  { attribute: "health", value: -1 }
+                ]
+              },
+              {
+                text: "参加额外的辅导课程",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "luck", value: 1 }
+                ]
+              },
+              {
+                text: "培养一项与学习相关的兴趣爱好",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "appearance", value: 1 }
+                ]
+              }
+            ]
+          };
+        } else {
+          return {
+            question: "一个学习的机会：",
+            options: [
+              {
+                text: "参加一个高级课程或培训",
+                effect: [
+                  { attribute: "intelligence", value: 4 },
+                  { attribute: "wealth", value: -2 }
+                ]
+              },
+              {
+                text: "自学一项新技能",
+                effect: [
+                  { attribute: "intelligence", value: 3 },
+                  { attribute: "health", value: -1 }
+                ]
+              },
+              {
+                text: "向专业人士请教学习",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "luck", value: 1 }
+                ]
+              }
+            ]
+          };
+        }
+        
+      case "investment":
+        return {
+          question: "一个理财或投资的机会：",
+          options: [
+            {
+              text: "投资一个风险较高的项目",
+              effect: [
+                { attribute: "wealth", value: 5 },
+                { attribute: "luck", value: -3 }
+              ]
+            },
+            {
+              text: "选择稳健的理财方式",
+              effect: [
+                { attribute: "wealth", value: 2 },
+                { attribute: "intelligence", value: 1 }
+              ]
+            },
+            {
+              text: "投资自己，提升个人能力",
+              effect: [
+                { attribute: "intelligence", value: 3 },
+                { attribute: "appearance", value: 1 }
+              ]
+            }
+          ]
+        };
+        
+      case "adventure":
+        if (age < 15) {
+          return {
+            question: "假期活动的选择：",
+            options: [
+              {
+                text: "参加一个夏令营或户外活动",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "luck", value: 2 }
+                ]
+              },
+              {
+                text: "探索自然环境，增长见识",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "health", value: 1 }
+                ]
+              },
+              {
+                text: "尝试一项从未体验过的活动",
+                effect: [
+                  { attribute: "luck", value: 2 },
+                  { attribute: "appearance", value: 1 }
+                ]
+              }
+            ]
+          };
+        } else {
+          return {
+            question: "一次冒险的机会：",
+            options: [
+              {
+                text: "参加一次探险旅行",
+                effect: [
+                  { attribute: "luck", value: 3 },
+                  { attribute: "health", value: 1 },
+                  { attribute: "wealth", value: -2 }
+                ]
+              },
+              {
+                text: "尝试一项极限运动",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "appearance", value: 2 },
+                  { attribute: "luck", value: -1 }
+                ]
+              },
+              {
+                text: "探索不同的文化和国家",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "luck", value: 2 },
+                  { attribute: "wealth", value: -1 }
+                ]
+              }
+            ]
+          };
+        }
+        
+      case "hobby":
+        return {
+          question: "关于兴趣爱好的选择：",
+          options: [
+            {
+              text: "培养一项艺术类爱好",
+              effect: [
+                { attribute: "intelligence", value: 2 },
+                { attribute: "appearance", value: 1 }
+              ]
+            },
+            {
+              text: "加入一个运动社团或俱乐部",
+              effect: [
+                { attribute: "health", value: 3 },
+                { attribute: "appearance", value: 1 }
+              ]
+            },
+            {
+              text: "学习一项手工或实用技能",
+              effect: [
+                { attribute: "intelligence", value: 1 },
+                { attribute: "wealth", value: 1 },
+                { attribute: "luck", value: 1 }
+              ]
+            }
+          ]
+        };
+        
+      case "family":
+        if (age < 18) {
+          return {
+            question: "与家人的关系：",
+            options: [
+              {
+                text: "主动帮助家务，增进亲子关系",
+                effect: [
+                  { attribute: "luck", value: 2 },
+                  { attribute: "intelligence", value: 1 }
+                ]
+              },
+              {
+                text: "与父母分享自己的想法和感受",
+                effect: [
+                  { attribute: "luck", value: 1 },
+                  { attribute: "intelligence", value: 2 }
+                ]
+              },
+              {
+                text: "参与家庭决策，学习责任感",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "luck", value: 1 }
+                ]
+              }
+            ]
+          };
+        } else {
+          return {
+            question: "关于家庭的决定：",
+            options: [
+              {
+                text: "将更多时间投入家庭生活",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "wealth", value: -1 },
+                  { attribute: "luck", value: 2 }
+                ]
+              },
+              {
+                text: "平衡工作与家庭的时间",
+                effect: [
+                  { attribute: "intelligence", value: 1 },
+                  { attribute: "health", value: 1 },
+                  { attribute: "wealth", value: 1 }
+                ]
+              },
+              {
+                text: "组织一次家庭旅行或活动",
+                effect: [
+                  { attribute: "health", value: 1 },
+                  { attribute: "luck", value: 2 },
+                  { attribute: "wealth", value: -2 }
+                ]
+              }
+            ]
+          };
+        }
+        
+      case "social":
+        return {
+          question: "社交圈的变化：",
+          options: [
+            {
+              text: "扩大社交圈，结交新朋友",
+              effect: [
+                { attribute: "appearance", value: 2 },
+                { attribute: "luck", value: 2 },
+                { attribute: "health", value: -1 }
+              ]
+            },
+            {
+              text: "加深与老朋友的关系",
+              effect: [
+                { attribute: "luck", value: 2 },
+                { attribute: "health", value: 1 }
+              ]
+            },
+            {
+              text: "参加社区志愿活动",
+              effect: [
+                { attribute: "appearance", value: 1 },
+                { attribute: "intelligence", value: 1 },
+                { attribute: "luck", value: 1 }
+              ]
+            }
+          ]
+        };
+        
+      case "spiritual":
+        if (age < 16) {
+          return {
+            question: "个人成长的机会：",
+            options: [
+              {
+                text: "学习如何管理情绪",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "health", value: 1 }
+                ]
+              },
+              {
+                text: "培养一种个人爱好，发现自我",
+                effect: [
+                  { attribute: "intelligence", value: 1 },
+                  { attribute: "luck", value: 2 }
+                ]
+              },
+              {
+                text: "参加一项益智或思考类活动",
+                effect: [
+                  { attribute: "intelligence", value: 3 },
+                  { attribute: "health", value: -1 }
+                ]
+              }
+            ]
+          };
+        } else {
+          return {
+            question: "心灵成长的机会：",
+            options: [
+              {
+                text: "学习冥想或放松技巧",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "intelligence", value: 2 }
+                ]
+              },
+              {
+                text: "探索哲学或精神思想",
+                effect: [
+                  { attribute: "intelligence", value: 3 },
+                  { attribute: "luck", value: 1 }
+                ]
+              },
+              {
+                text: "寻找生活的更高意义",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "luck", value: 2 },
+                  { attribute: "health", value: 1 }
+                ]
+              }
+            ]
+          };
+        }
+        
+      default:
+        // 新增更多自定义事件，提高多样性
+        const customEvents = [
+          {
+            question: "一个意外的机会：",
+            options: [
+              {
+                text: "尝试一次冒险的挑战",
+                effect: [
+                  { attribute: "luck" as AttributeType, value: 3 },
+                  { attribute: "health" as AttributeType, value: -1 }
+                ]
+              },
+              {
+                text: "谨慎评估后再做决定",
+                effect: [
+                  { attribute: "intelligence" as AttributeType, value: 2 },
+                  { attribute: "luck" as AttributeType, value: 1 }
+                ]
+              },
+              {
+                text: "寻求他人建议再行动",
+                effect: [
+                  { attribute: "intelligence" as AttributeType, value: 1 },
+                  { attribute: "luck" as AttributeType, value: 2 }
+                ]
+              }
+            ]
+          },
+          {
+            question: "突发的挑战：",
+            options: [
+              {
+                text: "直接面对，积极解决",
+                effect: [
+                  { attribute: "health" as AttributeType, value: 2 },
+                  { attribute: "intelligence" as AttributeType, value: 2 }
+                ]
+              },
+              {
+                text: "寻求帮助，共同应对",
+                effect: [
+                  { attribute: "luck" as AttributeType, value: 2 },
+                  { attribute: "intelligence" as AttributeType, value: 1 }
+                ]
+              },
+              {
+                text: "暂时回避，寻找更好时机",
+                effect: [
+                  { attribute: "health" as AttributeType, value: 1 },
+                  { attribute: "wealth" as AttributeType, value: 1 }
+                ]
+              }
+            ]
+          },
+          {
+            question: "生活中的岔路口：",
+            options: [
+              {
+                text: "追求个人成长和发展",
+                effect: [
+                  { attribute: "intelligence" as AttributeType, value: 2 },
+                  { attribute: "health" as AttributeType, value: -1 }
+                ]
+              },
+              {
+                text: "注重身心健康和平衡",
+                effect: [
+                  { attribute: "health" as AttributeType, value: 2 },
+                  { attribute: "intelligence" as AttributeType, value: 1 }
+                ]
+              },
+              {
+                text: "寻求新的体验和挑战",
+                effect: [
+                  { attribute: "luck" as AttributeType, value: 2 },
+                  { attribute: "appearance" as AttributeType, value: 1 }
+                ]
+              }
+            ]
+          }
+        ];
+        
+        return customEvents[Math.floor(Math.random() * customEvents.length)];
+    }
+  };
 
   // 提供特殊选择（天命之子天赋）
   const presentSpecialChoice = (age: number) => {
@@ -753,6 +1425,7 @@ export default function LifeRestartSimulator() {
     // 添加日志记录
     console.log(`presentChoice被调用，年龄: ${age}岁`);
 
+    // 针对特定年龄的固定选项
     switch(age) {
       case 12:
         question = "12岁的你面临一个选择，课余时间你想要："
@@ -809,263 +1482,204 @@ export default function LifeRestartSimulator() {
         break
 
       case 25:
-        question = "25岁的你面临一个选择，事业和家庭之间如何平衡："
-        options = [
-          {
-            text: "选择稳定的工作，但可能缺乏激情",
-            effect: [
-              { attribute: "intelligence", value: 1 },
-              { attribute: "health", value: 1 },
-            ],
-          },
-          {
-            text: "选择一份充满激情的工作，但可能面临经济压力",
-            effect: [
-              { attribute: "wealth", value: 2 },
-              { attribute: "health", value: 1 },
-            ],
-          },
-          {
-            text: "选择创业，但风险较高",
-            effect: [
-              { attribute: "wealth", value: 3 },
-              { attribute: "intelligence", value: 1 },
-            ],
-          },
-        ]
-        break
-
       case 35:
-        question = "35岁的你面临一个选择，家庭和事业如何兼顾："
-        options = [
-          {
-            text: "选择稳定的工作，但可能缺乏挑战",
-            effect: [
-              { attribute: "intelligence", value: 1 },
-              { attribute: "health", value: 1 },
-            ],
-          },
-          {
-            text: "选择一份充满挑战的工作，但可能面临经济压力",
-            effect: [
-              { attribute: "wealth", value: 2 },
-              { attribute: "health", value: 1 },
-            ],
-          },
-          {
-            text: "选择创业，但风险较高",
-            effect: [
-              { attribute: "wealth", value: 3 },
-              { attribute: "intelligence", value: 1 },
-            ],
-          },
-        ]
-        break
-
       case 50:
-        question = "50岁的你面临一个选择，如何保持健康和活力："
-        options = [
-          {
-            text: "选择定期体检，保持健康生活方式",
-            effect: [
-              { attribute: "health", value: 2 },
-              { attribute: "intelligence", value: 1 },
-            ],
-          },
-          {
-            text: "选择参加体育活动，保持身体健康",
-            effect: [
-              { attribute: "health", value: 3 },
-              { attribute: "intelligence", value: 1 },
-            ],
-          },
-          {
-            text: "选择参加瑜伽或冥想，保持心理健康",
-            effect: [
-              { attribute: "health", value: 2 },
-              { attribute: "intelligence", value: 1 },
-            ],
-          },
-        ]
-        break
-
       case 65:
-        question = "65岁的你面临一个选择，如何度过晚年生活："
-        options = [
-          {
-            text: "选择与家人共度时光，享受天伦之乐",
-            effect: [
-              { attribute: "health", value: 1 },
-              { attribute: "intelligence", value: 1 },
-            ],
-          },
-          {
-            text: "选择参加社区活动，保持社交活跃",
-            effect: [
-              { attribute: "appearance", value: 1 },
-              { attribute: "luck", value: 1 },
-            ],
-          },
-          {
-            text: "选择参加老年大学，继续学习新知识",
-            effect: [
-              { attribute: "intelligence", value: 2 },
-              { attribute: "wealth", value: 1 },
-            ],
-          },
-        ]
-        break
-
       case 80:
-        question = "80岁的你面临一个选择，如何保持健康和独立："
-        options = [
-          {
-            text: "选择继续工作，保持社会参与",
-            effect: [
-              { attribute: "wealth", value: 1 },
-              { attribute: "intelligence", value: 1 },
-            ],
-          },
-          {
-            text: "选择在家中养老，享受宁静生活",
-            effect: [
-              { attribute: "health", value: 2 },
-              { attribute: "intelligence", value: 1 },
-            ],
-          },
-          {
-            text: "选择参加社区活动，保持社交活跃",
-            effect: [
-              { attribute: "appearance", value: 1 },
-              { attribute: "luck", value: 1 },
-            ],
-          },
-        ]
-        break
-
       case 95:
-        question = "95岁的你面临一个选择，如何保持健康和尊严："
-        options = [
-          {
-            text: "选择继续工作，保持社会参与",
-            effect: [
-              { attribute: "wealth", value: 1 },
-              { attribute: "intelligence", value: 1 },
-            ],
-          },
-          {
-            text: "选择在家中养老，享受宁静生活",
-            effect: [
-              { attribute: "health", value: 2 },
-              { attribute: "intelligence", value: 1 },
-            ],
-          },
-          {
-            text: "选择参加社区活动，保持社交活跃",
-            effect: [
-              { attribute: "appearance", value: 1 },
-              { attribute: "luck", value: 1 },
-            ],
-          },
-        ]
+        // 对于这些关键年龄，前200岁，有50%概率使用随机选项
+        if (age < 200 && Math.random() < 0.5) {
+          const randomEvent = getRandomChoiceEvent(age);
+          question = `${age}岁: ${randomEvent.question}`;
+          options = randomEvent.options;
+        } else {
+          // 使用原有的固定选项
+          if (age === 25) {
+            question = "25岁的你面临一个选择，事业和家庭之间如何平衡："
+            options = [
+              {
+                text: "选择稳定的工作，但可能缺乏激情",
+                effect: [
+                  { attribute: "intelligence", value: 1 },
+                  { attribute: "health", value: 1 },
+                ],
+              },
+              {
+                text: "选择一份充满激情的工作，但可能面临经济压力",
+                effect: [
+                  { attribute: "wealth", value: 2 },
+                  { attribute: "health", value: 1 },
+                ],
+              },
+              {
+                text: "选择创业，但风险较高",
+                effect: [
+                  { attribute: "wealth", value: 3 },
+                  { attribute: "intelligence", value: 1 },
+                ],
+              },
+            ]
+          } else if (age === 35) {
+            question = "35岁的你面临一个选择，家庭和事业如何兼顾："
+            options = [
+              {
+                text: "选择稳定的工作，但可能缺乏挑战",
+                effect: [
+                  { attribute: "intelligence", value: 1 },
+                  { attribute: "health", value: 1 },
+                ],
+              },
+              {
+                text: "选择一份充满挑战的工作，但可能面临经济压力",
+                effect: [
+                  { attribute: "wealth", value: 2 },
+                  { attribute: "health", value: 1 },
+                ],
+              },
+              {
+                text: "选择创业，但风险较高",
+                effect: [
+                  { attribute: "wealth", value: 3 },
+                  { attribute: "intelligence", value: 1 },
+                ],
+              },
+            ]
+          } else if (age === 50) {
+            question = "50岁的你面临一个选择，如何保持健康和活力："
+            options = [
+              {
+                text: "选择定期体检，保持健康生活方式",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "intelligence", value: 1 },
+                ],
+              },
+              {
+                text: "选择参加体育活动，保持身体健康",
+                effect: [
+                  { attribute: "health", value: 3 },
+                  { attribute: "intelligence", value: 1 },
+                ],
+              },
+              {
+                text: "选择参加瑜伽或冥想，保持心理健康",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "intelligence", value: 1 },
+                ],
+              },
+            ]
+          } else if (age === 65) {
+            question = "65岁的你面临一个选择，如何度过晚年生活："
+            options = [
+              {
+                text: "选择与家人共度时光，享受天伦之乐",
+                effect: [
+                  { attribute: "health", value: 1 },
+                  { attribute: "intelligence", value: 1 },
+                ],
+              },
+              {
+                text: "选择参加社区活动，保持社交活跃",
+                effect: [
+                  { attribute: "appearance", value: 1 },
+                  { attribute: "luck", value: 1 },
+                ],
+              },
+              {
+                text: "选择参加老年大学，继续学习新知识",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "wealth", value: 1 },
+                ],
+              },
+            ]
+          } else if (age === 80) {
+            question = "80岁的你面临一个选择，如何保持健康和独立："
+            options = [
+              {
+                text: "选择继续工作，保持社会参与",
+                effect: [
+                  { attribute: "wealth", value: 1 },
+                  { attribute: "intelligence", value: 1 },
+                ],
+              },
+              {
+                text: "选择在家中养老，享受宁静生活",
+                effect: [
+                  { attribute: "health", value: 2 },
+                  { attribute: "intelligence", value: 1 },
+                ],
+              },
+              {
+                text: "选择参加社区活动，保持社交活跃",
+                effect: [
+                  { attribute: "appearance", value: 1 },
+                  { attribute: "luck", value: 1 },
+                ],
+              },
+            ]
+          } else if (age === 95) {
+            question = "95岁的你面临一个选择，如何保持健康和尊严："
+            options = [
+              {
+                text: "与家人共度时光，享受天伦之乐",
+                effect: [
+                  { attribute: "health", value: 1 },
+                  { attribute: "luck", value: 1 },
+                ],
+              },
+              {
+                text: "继续保持独立生活，维持自我尊严",
+                effect: [
+                  { attribute: "health", value: 1 },
+                  { attribute: "intelligence", value: 1 },
+                ],
+              },
+              {
+                text: "回顾人生，整理个人回忆录",
+                effect: [
+                  { attribute: "intelligence", value: 2 },
+                  { attribute: "appearance", value: 1 },
+                ],
+              },
+            ]
+          }
+        }
         break
 
-      case 190:
-        // 特殊处理190岁的选项
-        console.log("处理190岁的选项");
-        question = "190岁的你站在人类极限的边缘，科学无法解释你的存在，是继续安享晚年，还是追求更高的境界？"
-        options = [
-          {
-            text: "安享晚年，静待自然规律",
-            effect: [
-              { attribute: "health", value: 10 },
-              { attribute: "luck", value: 5 },
-              { attribute: "intelligence", value: 5 },
-            ],
-          },
-          {
-            text: "我命由我不由天！开始修仙之路",
-            effect: [
-              { attribute: "intelligence", value: 20 },
-              { attribute: "health", value: 15 },
-            ],
-            isImmortalCultivation: true
-          },
-          {
-            text: "总结一生智慧，留给后人",
-            effect: [
-              { attribute: "intelligence", value: 15 },
-              { attribute: "appearance", value: 10 },
-              { attribute: "wealth", value: 8 },
-            ],
-          },
-        ];
-        break;
-
-      case 110:
-      case 120:
-      case 125:
-      case 135:
-      case 140:
-      case 150:
-      case 155:
-      case 165:
-      case 170:
-      case 180:
-      case 185:
-      case 190:
-      case 195:
-        // 确保高龄选项生效
-        question = getHighAgeQuestion(age)
-        options = getHighAgeOptions(age)
-        break
-
+      // 对于110岁以上到200岁以下的年龄，使用随机选项或高龄选项
       default:
-        // 为所有其他未定义的选项年龄提供一个通用选项集
-        // 这确保任何年龄都不会因为缺少选项而卡住
-        return [
-          {
-            text: "专注于健康养生，延长寿命",
-            effect: [
-              { attribute: "health", value: Math.ceil(age/20) },
-              { attribute: "intelligence", value: Math.ceil(age/30) },
-            ],
-          },
-          {
-            text: "分享你的人生经验与智慧",
-            effect: [
-              { attribute: "appearance", value: Math.ceil(age/25) },
-              { attribute: "wealth", value: Math.ceil(age/30) },
-            ],
-          },
-          {
-            text: "尝试新的生活方式和挑战",
-            effect: [
-              { attribute: "luck", value: Math.ceil(age/20) },
-              { attribute: "appearance", value: Math.ceil(age/40) },
-              { attribute: "health", value: -Math.ceil(age/60) },
-            ],
-          },
-        ]
+        if (age >= 110 && age < 200) {
+          // 对于这些高龄，50%概率使用随机选项（降低比例）
+          if (Math.random() < 0.5) {
+            const randomEvent = getRandomChoiceEvent(age);
+            question = `${age}岁: ${randomEvent.question}`;
+            options = randomEvent.options;
+          } else {
+            question = getHighAgeQuestion(age)
+            options = getHighAgeOptions(age)
+          }
+        } else {
+          // 200岁以上或其他特定年龄使用原有的高龄选项
+          question = getHighAgeQuestion(age)
+          options = getHighAgeOptions(age)
+        }
     }
 
-    // 记录选项内容
-    console.log(`提供的选项:`, options);
+    // 确保问题描述包含年龄
+    if (!question.startsWith(`${age}岁`)) {
+      question = `${age}岁: ${question}`;
+    }
 
-    if (options.length > 0) {
-    setCurrentChoice({ question, options })
+    // 设置当前选择
+    setCurrentChoice({
+      question,
+      options,
+    })
+
+    // 切换到选择界面
     setGameState("choice")
-    } else {
-      // 如果没有找到对应年龄的选项，使用默认选项
-      const defaultOptions = getHighAgeOptions(age) // 会返回默认选项
-      console.log(`使用默认选项，年龄: ${age}岁`); // 调试日志
-      
-      setCurrentChoice({ 
-        question: getHighAgeQuestion(age),
-        options: defaultOptions
-      })
-      setGameState("choice")
-    }
   }
 
   // 获取高龄问题描述
@@ -1097,6 +1711,24 @@ export default function LifeRestartSimulator() {
         return "190岁的你站在人类极限的边缘，科学无法解释你的存在，是继续安享晚年，还是追求更高的境界？"
       case 195:
         return "站在两个世纪的交界处，195岁的你即将创造历史："
+      case 210:
+        return "210岁的你已经跨越了凡人的界限，继续探索修行的奥秘："
+      case 300:
+        return "三百岁的你已初步掌握修行之道，灵气在体内流转自如："
+      case 400:
+        return "四百岁高龄，你的修为已达筑基后期，肉体超脱凡胎："
+      case 500:
+        return "五百岁大关，你的修为已至金丹境界，寿元大增："
+      case 600:
+        return "六百岁的你已入元婴期，气息内敛，世人已难察觉你的真实年龄："
+      case 700:
+        return "七百岁高龄，踏入化神境界，你已经可以御空飞行："
+      case 800:
+        return "八百岁，你已达到炼虚合道的境界，隐隐触碰到天地本源："
+      case 900:
+        return "九百岁，距离飞升只有一步之遥，你如何选择最后的修行之路："
+      case 990:
+        return "九百九十岁，千年之期将至，你即将迎来最后的考验，为飞升做最后的准备："
       default:
         return `${age}岁的你站在人生的十字路口：`
     }
@@ -1160,6 +1792,249 @@ export default function LifeRestartSimulator() {
             ],
           },
         ]
+      case 210:
+        return [
+          {
+            text: "探索秘境，寻找修炼资源",
+            effect: [
+              { attribute: "intelligence", value: 15 },
+              { attribute: "health", value: 10 },
+              { attribute: "luck", value: 5 },
+            ],
+          },
+          {
+            text: "闭关修炼，提升修为",
+            effect: [
+              { attribute: "intelligence", value: 20 },
+              { attribute: "health", value: 15 },
+              { attribute: "appearance", value: 10 },
+            ],
+          },
+          {
+            text: "寻找仙缘，探索天地奥秘",
+            effect: [
+              { attribute: "intelligence", value: 15 },
+              { attribute: "luck", value: 15 },
+              { attribute: "health", value: 10 },
+            ],
+          },
+        ]
+      case 300:
+        return [
+          {
+            text: "深入名山大川，采集天材地宝",
+            effect: [
+              { attribute: "health", value: 20 },
+              { attribute: "luck", value: 15 },
+              { attribute: "intelligence", value: 10 },
+            ],
+          },
+          {
+            text: "研习古法秘籍，参悟道法自然",
+            effect: [
+              { attribute: "intelligence", value: 25 },
+              { attribute: "health", value: 15 },
+              { attribute: "appearance", value: 5 },
+            ],
+          },
+          {
+            text: "炼制灵丹妙药，增强体质",
+            effect: [
+              { attribute: "health", value: 25 },
+              { attribute: "intelligence", value: 15 },
+              { attribute: "appearance", value: 10 },
+            ],
+          },
+        ]
+      case 400:
+        return [
+          {
+            text: "开辟洞天福地，建立道场",
+            effect: [
+              { attribute: "wealth", value: 25 },
+              { attribute: "luck", value: 20 },
+              { attribute: "intelligence", value: 15 },
+            ],
+          },
+          {
+            text: "参悟天地大道，寻求突破",
+            effect: [
+              { attribute: "intelligence", value: 30 },
+              { attribute: "health", value: 20 },
+              { attribute: "appearance", value: 10 },
+            ],
+          },
+          {
+            text: "游历名山大川，增长见识",
+            effect: [
+              { attribute: "luck", value: 25 },
+              { attribute: "intelligence", value: 20 },
+              { attribute: "health", value: 15 },
+            ],
+          },
+        ]
+      case 500:
+        return [
+          {
+            text: "炼制九转金丹，提升境界",
+            effect: [
+              { attribute: "health", value: 30 },
+              { attribute: "intelligence", value: 25 },
+              { attribute: "appearance", value: 15 },
+            ],
+          },
+          {
+            text: "参悟天道规则，探索长生奥秘",
+            effect: [
+              { attribute: "intelligence", value: 35 },
+              { attribute: "luck", value: 20 },
+              { attribute: "health", value: 15 },
+            ],
+          },
+          {
+            text: "收徒传道，建立门派",
+            effect: [
+              { attribute: "wealth", value: 30 },
+              { attribute: "appearance", value: 20 },
+              { attribute: "intelligence", value: 20 },
+            ],
+          },
+        ]
+      case 600:
+        return [
+          {
+            text: "炼制元婴，凝练神魂",
+            effect: [
+              { attribute: "health", value: 35 },
+              { attribute: "intelligence", value: 30 },
+              { attribute: "appearance", value: 25 },
+            ],
+          },
+          {
+            text: "遨游四海，寻访仙踪",
+            effect: [
+              { attribute: "luck", value: 35 },
+              { attribute: "intelligence", value: 25 },
+              { attribute: "wealth", value: 20 },
+            ],
+          },
+          {
+            text: "闭关千年，潜心修炼",
+            effect: [
+              { attribute: "intelligence", value: 40 },
+              { attribute: "health", value: 30 },
+              { attribute: "appearance", value: 20 },
+            ],
+          },
+        ]
+      case 700:
+        return [
+          {
+            text: "炼制法宝，增强实力",
+            effect: [
+              { attribute: "intelligence", value: 40 },
+              { attribute: "health", value: 35 },
+              { attribute: "luck", value: 25 },
+            ],
+          },
+          {
+            text: "探索洞天福地，寻找机缘",
+            effect: [
+              { attribute: "luck", value: 40 },
+              { attribute: "health", value: 30 },
+              { attribute: "intelligence", value: 30 },
+            ],
+          },
+          {
+            text: "参悟天地规则，提升境界",
+            effect: [
+              { attribute: "intelligence", value: 45 },
+              { attribute: "health", value: 35 },
+              { attribute: "appearance", value: 30 },
+            ],
+          },
+        ]
+      case 800:
+        return [
+          {
+            text: "寻找仙门，探求飞升之法",
+            effect: [
+              { attribute: "luck", value: 45 },
+              { attribute: "intelligence", value: 40 },
+              { attribute: "health", value: 35 },
+            ],
+          },
+          {
+            text: "炼化天地灵气，凝结道果",
+            effect: [
+              { attribute: "health", value: 45 },
+              { attribute: "intelligence", value: 40 },
+              { attribute: "appearance", value: 35 },
+            ],
+          },
+          {
+            text: "开辟识海，参悟万道",
+            effect: [
+              { attribute: "intelligence", value: 50 },
+              { attribute: "health", value: 40 },
+              { attribute: "luck", value: 35 },
+            ],
+          },
+        ]
+      case 900:
+        return [
+          {
+            text: "寻找仙缘，准备飞升",
+            effect: [
+              { attribute: "luck", value: 50 },
+              { attribute: "intelligence", value: 45 },
+              { attribute: "health", value: 45 },
+            ],
+          },
+          {
+            text: "凝聚道果，冲击最后境界",
+            effect: [
+              { attribute: "intelligence", value: 50 },
+              { attribute: "health", value: 50 },
+              { attribute: "appearance", value: 40 },
+            ],
+          },
+          {
+            text: "融合天地，感悟大道",
+            effect: [
+              { attribute: "intelligence", value: 55 },
+              { attribute: "health", value: 45 },
+              { attribute: "luck", value: 45 },
+            ],
+          },
+        ]
+      case 990:
+        return [
+          {
+            text: "参悟天道，冲击飞升境界",
+            effect: [
+              { attribute: "intelligence", value: 60 },
+              { attribute: "health", value: 50 },
+              { attribute: "luck", value: 50 },
+            ],
+          },
+          {
+            text: "炼化九九归一大道丹，凝练仙体",
+            effect: [
+              { attribute: "health", value: 60 },
+              { attribute: "intelligence", value: 50 },
+              { attribute: "appearance", value: 50 },
+            ],
+          },
+          {
+            text: "沟通天地，寻找仙界入口",
+            effect: [
+              { attribute: "luck", value: 60 },
+              { attribute: "intelligence", value: 55 },
+              { attribute: "health", value: 45 },
+            ],
+          },
+        ]
       default:
         // 为所有其他未定义的选项年龄提供一个通用选项集
         return [
@@ -1191,213 +2066,199 @@ export default function LifeRestartSimulator() {
 
   // 生成随机事件
   const generateEvent = (age: number) => {
-    // 创建属性影响事件类型，包含事件文本和属性效果
+    // 特殊事件类型
     type AttributeEvent = {
       text: string;
       effect?: { attribute: AttributeType; value: number }[];
     };
 
-    // 创建健康危机事件类型，包含事件文本、属性效果和死亡概率
+    // 健康危机事件类型
     type HealthCrisisEvent = AttributeEvent & {
       deathChance?: number; // 事件可能导致死亡的概率 (0-1)
     };
 
-    // 将基础事件数组转换为包含可能属性效果的事件对象
+    // 创建基础事件
     const createEvents = (baseEvents: string[]): AttributeEvent[] => {
-      return baseEvents.map(text => ({ text }));
+      return baseEvents.map((text) => ({ text }));
     };
 
-    // 添加修仙相关事件 - 当角色选择修仙且年龄大于200岁时使用
-    const cultivationEvents: AttributeEvent[] = [
-      { 
-        text: "你在深山中发现了一处灵气充沛的洞府，修为大增。", 
+    // 检查是否有特殊天赋
+    const hasImmortalAptitude = selectedTalents.some((t) => t.id === "immortal_aptitude");
+    const hasAncientWisdom = selectedTalents.some((t) => t.id === "ancient_wisdom");
+    
+    // 正面事件列表（随机发生，有积极影响）
+    const positiveEvents: AttributeEvent[] = [
+      {
+        text: "灵感涌动，对修行有了新的理解",
         effect: [
           { attribute: "intelligence", value: 2 },
-          { attribute: "health", value: 2 }
-        ] 
+          { attribute: "health", value: 1 },
+        ],
       },
-      { 
-        text: "你感悟天地大道，对修炼有了新的理解。", 
-        effect: [{ attribute: "intelligence", value: 3 }] 
-      },
-      { 
-        text: "你成功炼制出一枚延寿丹，服用后精神焕发。", 
-        effect: [{ attribute: "health", value: 3 }] 
-      },
-      { 
-        text: "你在古籍中发现了失传已久的修炼心法，修为更上一层楼。", 
-        effect: [
-          { attribute: "intelligence", value: 2 },
-          { attribute: "appearance", value: 1 }
-        ] 
-      },
-      { 
-        text: "你成功采集到了千年灵芝，炼制成丹药后服用。", 
-        effect: [{ attribute: "health", value: 4 }] 
-      },
-      { 
-        text: "一位隐世的修道高人指点了你修行中的困惑。", 
-        effect: [
-          { attribute: "intelligence", value: 3 },
-          { attribute: "luck", value: 2 }
-        ] 
-      },
-      { 
-        text: "你的修为突破瓶颈，灵气运转更加自如。", 
+      {
+        text: "修行感悟，内力小有突破",
         effect: [
           { attribute: "health", value: 2 },
-          { attribute: "appearance", value: 2 }
-        ] 
+          { attribute: "intelligence", value: 1 },
+        ],
       },
-      { 
-        text: "你成功炼化了一颗天外陨石中的神秘能量。", 
+      {
+        text: "偶遇奇遇，获得一份机缘",
+        effect: [
+          { attribute: "luck", value: 3 },
+          { attribute: "intelligence", value: 1 },
+        ],
+      },
+      {
+        text: "心境开阔，修为更进一步",
+        effect: [
+          { attribute: "health", value: 2 },
+          { attribute: "intelligence", value: 2 },
+        ],
+      },
+      {
+        text: "参悟天机，对天道有所感悟",
         effect: [
           { attribute: "intelligence", value: 3 },
-          { attribute: "health", value: 1 }
-        ] 
+          { attribute: "luck", value: 1 },
+        ],
       },
-      { 
-        text: "你闭关三月，修为精进，容颜更加出尘脱俗。", 
+      {
+        text: "偶然发现一处灵气充沛的修炼宝地",
         effect: [
-          { attribute: "appearance", value: 3 },
-          { attribute: "intelligence", value: 1 }
-        ] 
+          { attribute: "health", value: 3 },
+          { attribute: "intelligence", value: 2 },
+        ],
       },
-      { 
-        text: "你意外获得了一位仙人遗留的修炼秘籍。", 
+      // 仙道资质专属增强事件 - 只有拥有仙道资质的人才会触发这些特殊事件
+      ...(hasImmortalAptitude ? [
+        {
+          text: "天生仙骨显现，灵气吸收效率大幅提升",
+          effect: [
+            { attribute: "health", value: 5 },
+            { attribute: "intelligence", value: 5 },
+            { attribute: "luck", value: 3 },
+          ],
+        } as AttributeEvent,
+        {
+          text: "灵识敏锐，察觉到一处即将出世的天材地宝",
+          effect: [
+            { attribute: "luck", value: 6 },
+            { attribute: "wealth", value: 4 },
+          ],
+        } as AttributeEvent,
+        {
+          text: "天人感应，获得天道垂青",
+          effect: [
+            { attribute: "intelligence", value: 4 },
+            { attribute: "luck", value: 4 },
+            { attribute: "health", value: 3 },
+          ],
+        } as AttributeEvent
+      ] : []),
+      // 远古智慧专属增强事件 - 只有拥有远古智慧的人才会触发这些特殊事件
+      ...(hasAncientWisdom ? [
+        {
+          text: "古老记忆觉醒，获得一门失传已久的修炼秘法",
+          effect: [
+            { attribute: "intelligence", value: 6 },
+            { attribute: "health", value: 4 },
+          ],
+        } as AttributeEvent,
+        {
+          text: "上古阵法感悟，灵力运转更加顺畅",
+          effect: [
+            { attribute: "health", value: 5 },
+            { attribute: "intelligence", value: 3 },
+            { attribute: "appearance", value: 2 },
+          ],
+        } as AttributeEvent,
+        {
+          text: "破译远古传承符文，获得宝贵修炼经验",
+          effect: [
+            { attribute: "intelligence", value: 7 },
+            { attribute: "luck", value: 3 },
+          ],
+        } as AttributeEvent
+      ] : []),
+      {
+        text: "炼化一缕先天灵气，实力大增",
         effect: [
-          { attribute: "intelligence", value: 4 },
-          { attribute: "luck", value: 2 }
-        ] 
-      }
+          { attribute: "health", value: 3 },
+          { attribute: "appearance", value: 2 },
+        ],
+      },
+      {
+        text: "心境平和，道心更加坚定",
+        effect: [
+          { attribute: "intelligence", value: 2 },
+          { attribute: "luck", value: 2 },
+        ],
+      },
+      {
+        text: "遇到同道中人，切磋修为",
+        effect: [
+          { attribute: "intelligence", value: 2 },
+          { attribute: "health", value: 2 },
+        ],
+      },
+      {
+        text: "偶得一份修炼资源，助力突破",
+        effect: [
+          { attribute: "health", value: 3 },
+          { attribute: "wealth", value: 2 },
+        ],
+      },
     ];
-
-    // 添加修仙危机事件
-    const cultivationCrisisEvents: HealthCrisisEvent[] = [
-      {
-        text: "走火入魔，经脉受损，修为倒退。",
-        effect: [
-          { attribute: "health", value: -5 },
-          { attribute: "intelligence", value: -3 }
-        ],
-        deathChance: 0.1,
-      },
-      {
-        text: "引来天地异象，遭遇小型劫难。",
-        effect: [
-          { attribute: "health", value: -4 },
-          { attribute: "luck", value: -2 }
-        ],
-        deathChance: 0.15,
-      },
-      {
-        text: "与其他修行者争夺灵药，受了重伤。",
-        effect: [
-          { attribute: "health", value: -6 },
-          { attribute: "appearance", value: -2 }
-        ],
-        deathChance: 0.12,
-      },
-      {
-        text: "修炼奇功导致真气紊乱，需闭关调养。",
-        effect: [
-          { attribute: "health", value: -3 },
-          { attribute: "intelligence", value: -2 }
-        ],
-        deathChance: 0.08,
-      }
-    ];
-
-    // 修仙普通生活事件
-    const cultivationLifeEvents = [
-      "潜心修炼，功力略有精进。",
-      "研读古籍，领悟了一些修道心得。",
-      "在山间采集了一些药草。",
-      "与其他修行者切磋修为。",
-      "祭炼法器，增强了自己的战斗力。",
-      "静坐冥想，感悟天地灵气。",
-      "练习御剑飞行，提高了灵活性。",
-      "炼制了一些基础丹药。",
-      "布置洞府阵法，增强安全保障。",
-      "探索了一处远古遗迹，收获颇丰。",
-      "在瀑布下打坐，修为有所增长。",
-      "拜访了一位隐居的老道，请教修行问题。",
-      "帮助凡人解决了一些困难，积累功德。",
-      "斩妖除魔，为民除害。",
-      "感悟自然之道，心境更加平和。"
-    ];
-
-    // 判断是否使用修仙事件
-    if (isImmortalCultivation && age > 200) {
-      // 检查是否是危机事件 (10%概率)
-      if (Math.random() < 0.1) {
-        const crisisEvent = cultivationCrisisEvents[Math.floor(Math.random() * cultivationCrisisEvents.length)];
+    
+    // 随机正面事件处理
+    const processPositiveEvent = (event: AttributeEvent): AttributeEvent => {
+      // 如果有仙道资质天赋，增加正面事件的属性加成
+      if (hasImmortalAptitude && event.effect && Math.random() < 0.6) {
+        // 60%的概率触发仙道资质的幸运增益（从40%提高）
+        const boostedEffect = event.effect.map(effect => {
+          if (effect.value > 0) {
+            return {
+              ...effect,
+              value: effect.value + (effect.value <= 2 ? 2 : 3) // 小幅加成+2，大幅加成+3（原来是+1和+2）
+            };
+          }
+          return effect;
+        });
         
-        // 记录事件
-        setLifeEvents((prev) => [...prev, `${age}岁: ${crisisEvent.text}`]);
-        
-        // 应用属性效果
-        if (crisisEvent.effect) {
-          const newAttributes = { ...attributes };
-          
-          crisisEvent.effect.forEach((effect) => {
-      const newValue = Math.min(
-        attributeCaps[effect.attribute],
-              Math.max(1, newAttributes[effect.attribute] + effect.value)
-            );
-            newAttributes[effect.attribute] = newValue;
-            
-            // 显示属性变化
-            const changeText = `  → ${attributeNames[effect.attribute]} ${effect.value > 0 ? "+" : ""}${effect.value}`;
-            setLifeEvents((prev) => [...prev, changeText]);
-          });
-          
-          setAttributes(newAttributes);
-        }
-        
-        // 检查是否死亡
-        if (crisisEvent.deathChance && Math.random() < crisisEvent.deathChance) {
-          endLife(age, crisisEvent.text);
-        }
-        
-        return; // 已经生成了事件，结束函数
+        return {
+          text: `${event.text}【仙道资质】你的灵气亲和力使效果大幅增强！`,
+          effect: boostedEffect
+        };
       }
       
-      // 检查是否生成属性事件 (60%概率)
-      if (Math.random() < 0.6) {
-        const event = cultivationEvents[Math.floor(Math.random() * cultivationEvents.length)];
+      // 如果有远古智慧天赋，也有概率增强效果
+      if (hasAncientWisdom && event.effect && Math.random() < 0.5) {
+        // 50%的概率触发远古智慧的增益
+        const boostedEffect = event.effect.map(effect => {
+          if (effect.attribute === 'intelligence' || effect.attribute === 'health') {
+            // 特别加强智力和健康属性
+            return {
+              ...effect,
+              value: effect.value + Math.min(3, effect.value)
+            };
+          } else if (effect.value > 0) {
+            return {
+              ...effect,
+              value: effect.value + 1
+            };
+          }
+          return effect;
+        });
         
-        // 记录事件
-        setLifeEvents((prev) => [...prev, `${age}岁: ${event.text}`]);
-        
-        // 应用属性效果
-        if (event.effect) {
-          const newAttributes = { ...attributes };
-          
-          event.effect.forEach((effect) => {
-            const newValue = Math.min(
-              attributeCaps[effect.attribute],
-              Math.max(1, newAttributes[effect.attribute] + effect.value)
-            );
-            newAttributes[effect.attribute] = newValue;
-
-    // 显示属性变化
-            const changeText = `  → ${attributeNames[effect.attribute]} ${effect.value > 0 ? "+" : ""}${effect.value}`;
-            setLifeEvents((prev) => [...prev, changeText]);
-          });
-          
-          setAttributes(newAttributes);
-        }
-        
-        return; // 已经生成了事件，结束函数
+        return {
+          text: `${event.text}【远古智慧】你的修行经验使效果更加显著！`,
+          effect: boostedEffect
+        };
       }
       
-      // 生成普通修仙生活事件 (剩余30%概率)
-      const event = cultivationLifeEvents[Math.floor(Math.random() * cultivationLifeEvents.length)];
-      setLifeEvents((prev) => [...prev, `${age}岁: ${event}`]);
-      
-      return; // 已经生成了事件，结束函数
-    }
+      return event;
+    };
 
     // 以下是原来的事件生成逻辑，只有非修仙状态或修仙但未到200岁时才会执行
     
@@ -2338,6 +3199,8 @@ export default function LifeRestartSimulator() {
     setActiveTab("attributes")
     setShouldStartSimulation(false)
     setSimulationPaused(false)
+    setLastRandomEventAge(0)
+    setLastSkippedChoice(null)
   }
 
   // 做出选择
@@ -2373,11 +3236,45 @@ export default function LifeRestartSimulator() {
       // 记录调试信息
       console.log(`设置修仙状态: true, 当前年龄: ${currentAge}, 第一次渡劫年龄: ${firstTribulationAge}`);
       
-      // 增加寿命上限
-      setMaxAgeLimit(300); // 增加最初的寿命上限，确保能活到第一次渡劫
+      // 增加寿命上限 - 修改为500岁，确保能活到多次渡劫
+      setMaxAgeLimit(500); // 增加最初的寿命上限，确保能活到多次渡劫
+      
+      // 检查是否有远古智慧天赋
+      const hasAncientWisdom = selectedTalents.some((t) => t.id === "ancient_wisdom");
       
       // 应用效果
       const newAttributes = { ...attributes };
+      
+      // 远古智慧天赋额外加成
+      if (hasAncientWisdom) {
+        setLifeEvents((prev) => [
+          ...prev, 
+          `  → 【远古智慧】天赋全面激活，你获得了上古修仙者的完整传承！`,
+          `  → 你的脑海中涌现出无数修仙典籍和上古秘法！`
+        ]);
+        newAttributes.intelligence = Math.min(100, newAttributes.intelligence + 20);
+        newAttributes.health = Math.min(100, newAttributes.health + 20);
+        newAttributes.luck = Math.min(100, newAttributes.luck + 10);
+        newAttributes.appearance = Math.min(100, newAttributes.appearance + 5);
+        newAttributes.wealth = Math.min(100, newAttributes.wealth + 5);
+        setLifeEvents((prev) => [
+          ...prev, 
+          `  → 智力 +20`,
+          `  → 健康 +20`,
+          `  → 幸运 +10`,
+          `  → 外貌 +5`,
+          `  → 财富 +5 (你知道如何找到珍贵炼材)`,
+          `  → 你的修炼起点远超凡人，几乎相当于已修行数百年的修士！`
+        ]);
+        
+        // 提前开启第一次渡劫，从200岁提前到180岁
+        setNextTribulationAge(180);
+        setLifeEvents((prev) => [
+          ...prev,
+          `  → 由于对修仙之道的深刻理解，你的第一次渡劫提前到180岁`,
+          `  → 同时，你的渡劫成功率大幅提高，几乎不可能失败`
+        ]);
+      }
       
       effects.forEach((effect) => {
         const newValue = Math.min(
@@ -2519,7 +3416,7 @@ export default function LifeRestartSimulator() {
               : "分配你的属性和天赋，看看你的人生会如何展开"}
           </CardDescription>
           {gameState === "setup" && (
-            <div className="text-xs text-muted-foreground mt-1">v1.0</div>
+            <div className="text-xs text-muted-foreground mt-1">v1.5</div>
           )}
         </CardHeader>
 
@@ -2720,6 +3617,18 @@ export default function LifeRestartSimulator() {
           {gameState === "events" && (
             <div className="w-full text-center">
               <p className="text-sm text-muted-foreground">你的人生正在展开...</p>
+              {lastSkippedChoice && simulationPaused === false && (
+                <Button 
+                  className="mt-2" 
+                  onClick={() => {
+                    // 恢复上次跳过的选择
+                    setGameState("choice");
+                    setSimulationPaused(true);
+                  }}
+                >
+                  返回选择
+                </Button>
+              )}
             </div>
           )}
 
@@ -2748,6 +3657,15 @@ export default function LifeRestartSimulator() {
           if (!open) {
             setGameState("events")
             setSimulationPaused(false)
+            
+            // 不要在关闭选项框时立即重启模拟，而是添加一个重新选择的提示
+            setLifeEvents((prev) => [...prev, `【提示】你关闭了选择框，可以点击"返回选择"按钮继续。`]);
+            
+            // 将当前选择保存起来，以便后续可以重新打开
+            setLastSkippedChoice({
+              age: currentAge,
+              choice: currentChoice
+            });
           }
         }}
       >

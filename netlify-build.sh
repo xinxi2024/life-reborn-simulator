@@ -13,7 +13,11 @@ rm -rf .netlify/functions
 
 # 安装依赖
 echo "Installing dependencies with clean install..."
-npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+# 使用完全匹配netlify.toml中的配置
+npm ci --legacy-peer-deps --no-fund --no-audit || {
+  echo "npm ci failed, falling back to npm install..."
+  npm install --legacy-peer-deps --no-fund --no-audit
+}
 
 # 构建应用
 echo "Building application..."

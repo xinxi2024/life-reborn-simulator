@@ -4,7 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "18.18.0"
-  NPM_VERSION = "9.8.0"
+  NPM_VERSION = "9.8.1"
   CI = "false"
   NPM_FLAGS = "--legacy-peer-deps"
   NETLIFY_USE_PNPM = "false"

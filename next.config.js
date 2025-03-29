@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  distDir: 'out',
+  // 为在Netlify上部署优化配置
+  images: {
+    unoptimized: true,
+  },
+  swcMinify: true,
 };
 
 module.exports = nextConfig; 

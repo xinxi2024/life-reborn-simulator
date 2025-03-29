@@ -1,12 +1,12 @@
 [build]
-  command = "npm ci && npm run build"
+  command = "chmod +x netlify-build.sh && ./netlify-build.sh"
   publish = ".next"
 
 [build.environment]
   NODE_VERSION = "18.18.0"
   NPM_VERSION = "9.8.0"
   CI = "false"
-  NPM_FLAGS = "--legacy-peer-deps --no-package-lock"
+  NPM_FLAGS = "--legacy-peer-deps"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs" 

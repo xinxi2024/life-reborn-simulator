@@ -264,7 +264,7 @@ export default function LifeRestartSimulator() {
     {
       id: "immortal_aptitude",
       name: "仙道资质",
-      description: "天生仙骨灵根，渡劫成功率提高25%，修仙属性增长翻倍，正面事件效果提升60%，解锁专属仙道机缘",
+      description: "天生仙骨灵根，解锁专属仙道机缘",
       effect: {
         type: "special",
         details: { immortal_cultivation_bonus: true },
@@ -275,7 +275,7 @@ export default function LifeRestartSimulator() {
     {
       id: "ancient_wisdom",
       name: "远古智慧",
-      description: "获得上古修仙者的完整传承，智力和健康初上限+20，修仙起点极高，突破瓶颈轻而易举，解锁专属秘法事件",
+      description: "获得上古修仙者的完整传承，智力和健康初上限+20，解锁专属秘法事件",
       effect: {
         type: "attribute_bonus",
         details: {

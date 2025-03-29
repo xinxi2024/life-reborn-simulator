@@ -636,8 +636,11 @@ export default function LifeRestartSimulator() {
           // 健康、幸运和智力都会影响能否活到超高龄
           const superAgeChance = (attributes.health * 0.6 + attributes.luck * 0.3 + attributes.intelligence * 0.1) / 100;
           
+          // 检查是否有仙道资质天赋
+          const hasImmortalAptitude = selectedTalents.some((t) => t.id === "immortal_aptitude");
+          
           // 更改随机逻辑，提高存活概率，确保高属性角色能活到190岁
-          if (Math.random() > superAgeChance * 1.5) { // 降低死亡概率
+          if (Math.random() > superAgeChance * 1.5 && !hasImmortalAptitude) { // 降低死亡概率，但有仙道资质的不会受影响
             maxAge = Math.min(maxAge, newAge + 10 + Math.floor(Math.random() * 20)); // 增加额外的10-30年寿命
           } else {
             // 确保有机会达到190岁
@@ -656,6 +659,12 @@ export default function LifeRestartSimulator() {
             
             // 添加日志
             console.log(`接近190岁: 确保能够达到修仙选择年龄，设置寿命上限为${maxAge}`);
+          }
+          
+          // 如果有仙道资质，确保一定能活到190岁以上
+          if (hasImmortalAptitude) {
+            maxAge = Math.max(maxAge, 195); // 至少能活到195岁
+            console.log(`【仙道资质】影响: 提高寿命至少到${maxAge}岁，确保能达到修仙选择年龄`);
           }
         }
         
@@ -1419,238 +1428,60 @@ export default function LifeRestartSimulator() {
 
   // 提供普通选择
   const presentChoice = (age: number) => {
-    let question = ""
-    let options: ChoiceOption[] = []
+    let question: string
+    let options: ChoiceOption[]
 
-    // 添加日志记录
-    console.log(`presentChoice被调用，年龄: ${age}岁`);
-
-    // 针对特定年龄的固定选项
+    // 根据年龄决定问题和选项
     switch(age) {
       case 12:
-        question = "12岁的你面临一个选择，课余时间你想要："
+        question = "12岁，你即将步入青少年时期："
         options = [
           {
-            text: "专注学习，提高成绩",
+            text: "专注学习，为将来做准备",
             effect: [
-              { attribute: "intelligence", value: 2 },
+              { attribute: "intelligence", value: 3 },
               { attribute: "health", value: -1 },
             ],
           },
-          {
-            text: "参加体育活动，锻炼身体",
-            effect: [
-              { attribute: "health", value: 2 },
-              { attribute: "intelligence", value: -1 },
-            ],
-          },
-          {
-            text: "社交活动，结交更多朋友",
-            effect: [
-              { attribute: "appearance", value: 1 },
-              { attribute: "luck", value: 1 },
-            ],
-          },
+          // ... existing code ...
         ]
         break
+      // ... existing code ...
 
-      case 18:
-        question = "18岁的你面临一个选择，即将步入社会："
+      // 特殊处理190岁的情况，确保总是展示修仙选项
+      case 190:
+        question = "190岁的你站在人类极限的边缘，科学无法解释你的存在，是继续安享晚年，还是追求更高的境界？"
         options = [
           {
-            text: "选择一份稳定的工作，但可能缺乏挑战",
+            text: "安享晚年，静待自然规律",
             effect: [
-              { attribute: "intelligence", value: 1 },
-              { attribute: "health", value: 1 },
+              { attribute: "health", value: 10 },
+              { attribute: "luck", value: 5 },
+              { attribute: "intelligence", value: 5 },
             ],
           },
           {
-            text: "选择一份充满挑战的工作，但可能面临经济压力",
+            text: "我命由我不由天！开始修仙之路",
             effect: [
-              { attribute: "wealth", value: 2 },
-              { attribute: "health", value: 1 },
+              { attribute: "intelligence", value: 20 },
+              { attribute: "health", value: 15 },
             ],
+            isImmortalCultivation: true
           },
           {
-            text: "选择创业，但风险较高",
+            text: "总结一生智慧，留给后人",
             effect: [
-              { attribute: "wealth", value: 3 },
-              { attribute: "intelligence", value: 1 },
+              { attribute: "intelligence", value: 15 },
+              { attribute: "appearance", value: 10 },
+              { attribute: "wealth", value: 8 },
             ],
           },
         ]
         break
 
-      case 25:
-      case 35:
-      case 50:
-      case 65:
-      case 80:
-      case 95:
-        // 对于这些关键年龄，前200岁，有50%概率使用随机选项
-        if (age < 200 && Math.random() < 0.5) {
-          const randomEvent = getRandomChoiceEvent(age);
-          question = `${age}岁: ${randomEvent.question}`;
-          options = randomEvent.options;
-        } else {
-          // 使用原有的固定选项
-          if (age === 25) {
-            question = "25岁的你面临一个选择，事业和家庭之间如何平衡："
-            options = [
-              {
-                text: "选择稳定的工作，但可能缺乏激情",
-                effect: [
-                  { attribute: "intelligence", value: 1 },
-                  { attribute: "health", value: 1 },
-                ],
-              },
-              {
-                text: "选择一份充满激情的工作，但可能面临经济压力",
-                effect: [
-                  { attribute: "wealth", value: 2 },
-                  { attribute: "health", value: 1 },
-                ],
-              },
-              {
-                text: "选择创业，但风险较高",
-                effect: [
-                  { attribute: "wealth", value: 3 },
-                  { attribute: "intelligence", value: 1 },
-                ],
-              },
-            ]
-          } else if (age === 35) {
-            question = "35岁的你面临一个选择，家庭和事业如何兼顾："
-            options = [
-              {
-                text: "选择稳定的工作，但可能缺乏挑战",
-                effect: [
-                  { attribute: "intelligence", value: 1 },
-                  { attribute: "health", value: 1 },
-                ],
-              },
-              {
-                text: "选择一份充满挑战的工作，但可能面临经济压力",
-                effect: [
-                  { attribute: "wealth", value: 2 },
-                  { attribute: "health", value: 1 },
-                ],
-              },
-              {
-                text: "选择创业，但风险较高",
-                effect: [
-                  { attribute: "wealth", value: 3 },
-                  { attribute: "intelligence", value: 1 },
-                ],
-              },
-            ]
-          } else if (age === 50) {
-            question = "50岁的你面临一个选择，如何保持健康和活力："
-            options = [
-              {
-                text: "选择定期体检，保持健康生活方式",
-                effect: [
-                  { attribute: "health", value: 2 },
-                  { attribute: "intelligence", value: 1 },
-                ],
-              },
-              {
-                text: "选择参加体育活动，保持身体健康",
-                effect: [
-                  { attribute: "health", value: 3 },
-                  { attribute: "intelligence", value: 1 },
-                ],
-              },
-              {
-                text: "选择参加瑜伽或冥想，保持心理健康",
-                effect: [
-                  { attribute: "health", value: 2 },
-                  { attribute: "intelligence", value: 1 },
-                ],
-              },
-            ]
-          } else if (age === 65) {
-            question = "65岁的你面临一个选择，如何度过晚年生活："
-            options = [
-              {
-                text: "选择与家人共度时光，享受天伦之乐",
-                effect: [
-                  { attribute: "health", value: 1 },
-                  { attribute: "intelligence", value: 1 },
-                ],
-              },
-              {
-                text: "选择参加社区活动，保持社交活跃",
-                effect: [
-                  { attribute: "appearance", value: 1 },
-                  { attribute: "luck", value: 1 },
-                ],
-              },
-              {
-                text: "选择参加老年大学，继续学习新知识",
-                effect: [
-                  { attribute: "intelligence", value: 2 },
-                  { attribute: "wealth", value: 1 },
-                ],
-              },
-            ]
-          } else if (age === 80) {
-            question = "80岁的你面临一个选择，如何保持健康和独立："
-            options = [
-              {
-                text: "选择继续工作，保持社会参与",
-                effect: [
-                  { attribute: "wealth", value: 1 },
-                  { attribute: "intelligence", value: 1 },
-                ],
-              },
-              {
-                text: "选择在家中养老，享受宁静生活",
-                effect: [
-                  { attribute: "health", value: 2 },
-                  { attribute: "intelligence", value: 1 },
-                ],
-              },
-              {
-                text: "选择参加社区活动，保持社交活跃",
-                effect: [
-                  { attribute: "appearance", value: 1 },
-                  { attribute: "luck", value: 1 },
-                ],
-              },
-            ]
-          } else if (age === 95) {
-            question = "95岁的你面临一个选择，如何保持健康和尊严："
-            options = [
-              {
-                text: "与家人共度时光，享受天伦之乐",
-                effect: [
-                  { attribute: "health", value: 1 },
-                  { attribute: "luck", value: 1 },
-                ],
-              },
-              {
-                text: "继续保持独立生活，维持自我尊严",
-                effect: [
-                  { attribute: "health", value: 1 },
-                  { attribute: "intelligence", value: 1 },
-                ],
-              },
-              {
-                text: "回顾人生，整理个人回忆录",
-                effect: [
-                  { attribute: "intelligence", value: 2 },
-                  { attribute: "appearance", value: 1 },
-                ],
-              },
-            ]
-          }
-        }
-        break
-
-      // 对于110岁以上到200岁以下的年龄，使用随机选项或高龄选项
+      // 对于110岁以上到200岁以下的年龄，使用随机选项或高龄选项，但排除190岁
       default:
-        if (age >= 110 && age < 200) {
+        if (age >= 110 && age < 200 && age !== 190) {
           // 对于这些高龄，50%概率使用随机选项（降低比例）
           if (Math.random() < 0.5) {
             const randomEvent = getRandomChoiceEvent(age);
@@ -1667,19 +1498,7 @@ export default function LifeRestartSimulator() {
         }
     }
 
-    // 确保问题描述包含年龄
-    if (!question.startsWith(`${age}岁`)) {
-      question = `${age}岁: ${question}`;
-    }
-
-    // 设置当前选择
-    setCurrentChoice({
-      question,
-      options,
-    })
-
-    // 切换到选择界面
-    setGameState("choice")
+    // ... existing code ...
   }
 
   // 获取高龄问题描述
